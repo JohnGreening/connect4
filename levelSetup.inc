@@ -3,7 +3,9 @@ newGame
         CALL createLevel
         RET
 
-
+initialiseSprite
+        ret
+        
 createLevel
         LD HL, page000
         LD DE, tileMapData      ; HL points to the tileMap address

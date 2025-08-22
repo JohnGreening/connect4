@@ -4,15 +4,17 @@ INCLUDE "connect4.inc"
 INCLUDE "globals.inc"
 INCLUDE "utilities.inc"
 INCLUDE "levelSetup.inc"
+INCLUDE "spriteRoutines.inc"
 
 ; ----------------------------
 ; Game Initialization
 ; ----------------------------
 MAINPROG
 ; this stuff is only called ONCE
-        NEXTREG $7, 3                       ; set speed to 28mhz
+        NEXTREG $7, 0                       ; set speed to 28mhz
         CALL spriteSetup                    ; initialise graphics
         CALL newGame
+        CALL displayCounter
 
 ; ----------------------------
 ; main game start
