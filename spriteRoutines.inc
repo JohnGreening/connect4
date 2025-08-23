@@ -1,6 +1,7 @@
 counterX defw 36
 counterY defw 24
-counterPattern db 4
+counterPattern db 0
+counterColumn db 1
 
 displayCounter:
         LD A, 0                         ; set the sprite index
@@ -102,6 +103,7 @@ displayCounter:
         LD A, %01000000                 ; set as RELATIVE and use relative pattern
         NEXTREG $79, A                  ; set attr byte 4 of port $0057
 
+        HALT
         RET
 
 

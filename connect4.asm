@@ -5,6 +5,7 @@ INCLUDE "globals.inc"
 INCLUDE "utilities.inc"
 INCLUDE "levelSetup.inc"
 INCLUDE "spriteRoutines.inc"
+INCLUDE "soundEffects.inc"
 
 ; ----------------------------
 ; Game Initialization
@@ -12,14 +13,27 @@ INCLUDE "spriteRoutines.inc"
 MAINPROG
 ; this stuff is only called ONCE
         NEXTREG $7, 0                       ; set speed to 28mhz
+        CALL setupIM2
         CALL spriteSetup                    ; initialise graphics
         CALL newGame
-        CALL displayCounter
-
+        call displayCounter
 ; ----------------------------
 ; main game start
 ; ----------------------------
 MainLoop:
+        LD BC, $dffe
+        IN A, (C)
+        AND %00000001
+        JR Z, keyRight
+        IN A, (C)
+        AND %00000010
+        JR Z, keyLeft
+
+        LD BC, $bffe
+        IN A, (C)
+        AND %00000001
+        JR Z, keyEnter
+
 ; ----------------------------
 ; Exit Handling (X key)
 ; ----------------------------
@@ -30,13 +44,89 @@ CheckExit:
         JR NZ, MainLoop             ; X not pressed → continue game
         JR EndProgram               ; X pressed → end program
 
+keyRight:
+        LD A, soundKey
+        CALL playsound
+        LD A, (counterColumn)
+        INC A
+        CP 8
+        JR NZ, scc1
+        LD A, 1
+scc1:
+        LD (counterColumn), A
+        jr moveCounter 
+keyLeft:
+        LD A, soundKey
+        call playsound
+        LD A, (counterColumn)
+        DEC A
+        CP 0
+        JR NZ, scc2
+        LD A, 7
+scc2:
+        LD (counterColumn), A
+        jr moveCounter 
+keyEnter:
+        jp MainLoop
+
+
+moveCounter:
+        LD A, (counterColumn)
+        LD D, A
+        LD E, 32
+        MUL D, E
+        ADD DE, 4
+        EX DE, HL
+        LD (counterX), HL
+        CALL displayCounter
+        JP MainLoop
+
 ; ----------------------------
 ; Program End
 ; ----------------------------
 EndProgram:
         CALL endProg
+        IM 1
         NEXTREG $7, 0                   ; set speed to 3.5mhz
         RET
+
+setupIM2:
+; sub routine to set-up IM2 to point to BB
+        DI 
+        LD HL, IM2Tab
+        LD DE, IM2Tab +1
+        LD A, H
+        LD I , A
+        LD A, $f0
+        LD (HL), A
+        LD BC, 256
+        LDIR 
+
+        IM 2
+        EI
+        RET
+
+; Align 256
+DEFS -$&$FF
+IM2Tab:
+        DEFS 257, 0
+
+ORG $f0f0
+im2Routine
+        PUSH AF
+        PUSH BC
+        PUSH DE
+        PUSH HL
+
+INCLUDE "im2Routine.inc"
+
+        POP HL
+        POP DE
+        POP BC
+        POP AF
+
+        EI
+        RETI 
 
 
 length EQU $ - $6000
