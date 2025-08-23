@@ -134,7 +134,7 @@ Ch3VolumeD:  DW 00
 Ch3Flags:    DB 0
 Ch3Length:   DB 0
 
-soundTumble       EQU 1
+soundDrop      EQU 1
 soundKey       EQU 2
 soundBounce    EQU 3
 soundHitskull  EQU 4

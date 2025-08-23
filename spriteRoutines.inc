@@ -1,7 +1,30 @@
 counterX defw 36
 counterY defw 24
 counterPattern db 0
-counterColumn db 1
+columnSelected db 1
+rowSelected db 0
+columns defs 7, 0
+board defs 42, 0
+
+
+initialiseBoard
+        ld a, 0
+        ld hl, columns
+        ld b, 7+42
+ib1:
+        ld (hl), a
+        inc hl
+        djnz ib1
+        ret
+
+newGo:
+        ld a, 36
+        ld (counterX), a
+        ld a, 24
+        ld (counterY), a
+        ld a, 1
+        ld (columnSelected), a
+        ret
 
 displayCounter:
         LD A, 0                         ; set the sprite index
@@ -103,7 +126,7 @@ displayCounter:
         LD A, %01000000                 ; set as RELATIVE and use relative pattern
         NEXTREG $79, A                  ; set attr byte 4 of port $0057
 
-        HALT
+;        HALT
         RET
 
 

@@ -1,3 +1,4 @@
+
 device ZXSPECTRUMNEXT
 
 ORG $6000
@@ -838,7 +839,8 @@ tilemapPalette0Loop:
   DJNZ tilemapPalette0Loop
  
 ; Configure Sprite and Layers System
-  NEXTREG $15, %00000011
+; NEXTREG $15, %00000011
+  NEXTREG $15, %00010111
 ; bit 7 1=enable lo-res 
 ; bit 6 1=flip sprite rendering priority
 ; bit 5 1=change clipping over border mode
@@ -883,6 +885,9 @@ spritePatternLoop:
 
 ; set index of transparent colour in the Sprite palette
  NEXTREG $4b, 0
+
+; set global transparency fallback
+ NEXTREG $14, 0
 
 ; load the colours into the palette memory
 ; here we are using 9 bit colours, so use $44 to do the load

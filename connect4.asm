@@ -15,7 +15,10 @@ MAINPROG
         NEXTREG $7, 0                       ; set speed to 28mhz
         CALL setupIM2
         CALL spriteSetup                    ; initialise graphics
+        call ULAon
         CALL newGame
+        call initialiseBoard
+        call newGo
         call displayCounter
 ; ----------------------------
 ; main game start
@@ -29,7 +32,7 @@ MainLoop:
         AND %00000010
         JR Z, keyLeft
 
-        LD BC, $bffe
+        LD BC, $7ffe
         IN A, (C)
         AND %00000001
         JR Z, keyEnter
@@ -42,37 +45,63 @@ CheckExit:
         IN A, (C)
         AND %00000100               ; bit 2 = X
         JR NZ, MainLoop             ; X not pressed → continue game
-        JR EndProgram               ; X pressed → end program
+        jp EndProgram               ; X pressed → end program
 
 keyRight:
+        call keyPause
         LD A, soundKey
         CALL playsound
-        LD A, (counterColumn)
+        LD A, (columnSelected)
         INC A
         CP 8
         JR NZ, scc1
         LD A, 1
 scc1:
-        LD (counterColumn), A
-        jr moveCounter 
+        LD (columnSelected), A
+        jr moveCounterLR
+
 keyLeft:
+        call keyPause
         LD A, soundKey
         call playsound
-        LD A, (counterColumn)
+        LD A, (columnSelected)
         DEC A
         CP 0
         JR NZ, scc2
         LD A, 7
 scc2:
-        LD (counterColumn), A
-        jr moveCounter 
+        LD (columnSelected), A
+        jr moveCounterLR 
 keyEnter:
+        call keyPause
+        ld a, (columnSelected)                  ; get column selected
+        dec a                                   ; make 0 based index
+        ld hl, columns                          ; point HL to columns data
+        add hl, a                               ; point to actual column selected
+        ld a, (hl)                              ; get how many counters in this column
+        cp 6                                    ; are we full?
+        jr z, MainLoop                          ; branch back if so
+        inc a                                   ; add the new counter
+        ld (hl), a                              ; and store in columns
+
+        ld b, a                                 ; temp store of A
+        ld a, 7                                 ; the row is 7 - counters in column                             
+        sub b                                   ; get the row
+        ld (rowSelected), a                     ; store the row selected
+        ld d, a                                 ; calculate E = (row * 32) + 28
+        ld e, 32
+        mul d, e
+        add de, 28
+
+        ld a, soundDrop
+        call playsound
+        jp moveCounterDown
         jp MainLoop
 
 
-moveCounter:
-        LD A, (counterColumn)
-        LD D, A
+moveCounterLR:
+        LD A, (columnSelected)                  ; get column selected (1 - 7)
+        LD D, A                                 ; calculate E = (column * 32) + 4
         LD E, 32
         MUL D, E
         ADD DE, 4
@@ -80,6 +109,18 @@ moveCounter:
         LD (counterX), HL
         CALL displayCounter
         JP MainLoop
+
+moveCounterDown:
+        ld hl, (counterY)
+        inc hl
+        ld a, l
+        cp e
+        jr z, mcd1
+        ld (counterY), hl
+        call displayCounter
+        jr moveCounterDown
+mcd1:
+        jp MainLoop
 
 ; ----------------------------
 ; Program End

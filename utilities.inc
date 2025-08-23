@@ -13,7 +13,6 @@ ReadNextReg
         POP BC
         RET
 
-
 ULAoff
         LD A, $68
         CALL ReadNextReg
@@ -26,6 +25,13 @@ ULAon
         AND %01111111
         NEXTREG $68, A
         RET
+
+keyPause
+        ld b, keyPauseLength
+kp1
+        halt
+        djnz kp1
+        ret
 
 random1
         PUSH HL
