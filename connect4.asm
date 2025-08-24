@@ -15,11 +15,11 @@ MAINPROG
         NEXTREG $7, 0                       ; set speed to 28mhz
         CALL setupIM2
         CALL spriteSetup                    ; initialise graphics
-        call ULAon
-        CALL newGame
+newGame:
+        CALL displayBoard
         call initialiseBoard
         call newGo
-        call displayCounter
+;        call displaychip
 ; ----------------------------
 ; main game start
 ; ----------------------------
@@ -53,12 +53,13 @@ keyRight:
         CALL playsound
         LD A, (columnSelected)
         INC A
-        CP 8
+        CP maxColumn + 1
         JR NZ, scc1
-        LD A, 1
+        LD A, minColumn
 scc1:
         LD (columnSelected), A
-        jr moveCounterLR
+        call movechipLR
+        jp MainLoop
 
 keyLeft:
         call keyPause
@@ -66,26 +67,28 @@ keyLeft:
         call playsound
         LD A, (columnSelected)
         DEC A
-        CP 0
+        CP minColumn - 1
         JR NZ, scc2
-        LD A, 7
+        LD A, maxColumn
 scc2:
         LD (columnSelected), A
-        jr moveCounterLR 
+        call movechipLR
+        jp MainLoop
+
 keyEnter:
         call keyPause
         ld a, (columnSelected)                  ; get column selected
         dec a                                   ; make 0 based index
         ld hl, columns                          ; point HL to columns data
         add hl, a                               ; point to actual column selected
-        ld a, (hl)                              ; get how many counters in this column
+        ld a, (hl)                              ; get how many chips in this column
         cp 6                                    ; are we full?
         jr z, MainLoop                          ; branch back if so
-        inc a                                   ; add the new counter
+        inc a                                   ; add the new chip
         ld (hl), a                              ; and store in columns
 
         ld b, a                                 ; temp store of A
-        ld a, 7                                 ; the row is 7 - counters in column                             
+        ld a, 7                                 ; the row is 7 - chips in column                             
         sub b                                   ; get the row
         ld (rowSelected), a                     ; store the row selected
         ld d, a                                 ; calculate E = (row * 32) + 28
@@ -95,32 +98,17 @@ keyEnter:
 
         ld a, soundDrop
         call playsound
-        jp moveCounterDown
-        jp MainLoop
+        call movechipDown
 
+        call checkWin
+        jp nc, MainLoop
 
-moveCounterLR:
-        LD A, (columnSelected)                  ; get column selected (1 - 7)
-        LD D, A                                 ; calculate E = (column * 32) + 4
-        LD E, 32
-        MUL D, E
-        ADD DE, 4
-        EX DE, HL
-        LD (counterX), HL
-        CALL displayCounter
-        JP MainLoop
-
-moveCounterDown:
-        ld hl, (counterY)
-        inc hl
-        ld a, l
-        cp e
-        jr z, mcd1
-        ld (counterY), hl
-        call displayCounter
-        jr moveCounterDown
-mcd1:
-        jp MainLoop
+winDetected:
+        ld bc, $7ffe
+        in a, (c)
+        and %00001000
+        jr nz, winDetected
+        jp newGame
 
 ; ----------------------------
 ; Program End

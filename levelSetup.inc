@@ -1,11 +1,8 @@
-newGame
+displayBoard
         CALL killSprites
         CALL createLevel
         RET
 
-initialiseSprite
-        ret
-        
 createLevel
         LD HL, page000
         LD DE, tileMapData      ; HL points to the tileMap address
