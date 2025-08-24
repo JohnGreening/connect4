@@ -1,3 +1,4 @@
+spriteIndex     db 0
 chipX           defw 36
 chipY           defw 24
 chipPattern     db 0
@@ -102,6 +103,10 @@ winningLines
                 DB 37,31,25,19
                 DB 38,32,26,20
 
+spritePixelX    db 36, 68, 100, 132, 164, 196, 228
+spritePixelY    db 24, 60, 92, 124, 156, 188, 220
+
+
 
 initialiseBoard:
         ld a, 0
@@ -113,14 +118,40 @@ ib1:
         djnz ib1
         ret
 
+getYPixel:
+; A= row value, where 0 = positioning chip before dropping
+; return in A the Y pixel coord of the sprite
+        ld de, spritePixelY
+        add de, a
+        ld a, (de)
+        ret
+
+getXPixel:
+; A= column value, 1 - 7
+; return in A the X pixel coord of the sprite
+        ld de, spritePixelX
+        add de, a
+        dec de
+        ld a, (de)
+        ret
 newGo:
-        ld a, 36
-        ld (chipX), a
-        ld a, 24
-        ld (chipY), a
+        ld a, 0
+        ld (spriteIndex), a
+
+        ld a, 0
+        ld (rowSelected), a        
+        call getYPixel
+        ld h, 0
+        ld l, a
+        ld (chipY), hl
+
         ld a, 1
         ld (columnSelected), a
-
+        call getXPixel
+        ld h, 0
+        ld l, a
+        ld (chipX), hl
+        
         ld a, (chipPattern)
         xor 4
         ld (chipPattern), a
@@ -259,12 +290,10 @@ setBoardChip
 
 movechipLR:
         LD A, (columnSelected)                  ; get column selected (1 - 7)
-        LD D, A                                 ; calculate E = (column * 32) + 4
-        LD E, 32
-        MUL D, E
-        ADD DE, 4
-        EX DE, HL
-        LD (chipX), HL
+        call getXPixel
+        ld h, 0
+        ld l, a
+        LD (chipX), hl
         CALL displaychip
         ret
 
@@ -282,7 +311,9 @@ mcd1:
         ret
 
 displaychip:
-        LD A, 0                         ; set the sprite index
+        push bc
+        LD A, (spriteIndex)             ; set the sprite index
+        ld c, a                         ; store in c
         NEXTREG $34, A                  ; set sprite to activate
 
         LD HL, (chipX)
@@ -319,7 +350,8 @@ displaychip:
         NEXTREG $39, A                  ;
 
 
-        LD A, 1                         ; set first RELATIVE sprite
+        inc c
+        LD A, c                         ; set first RELATIVE sprite
         NEXTREG $34, A                  ; set sprite to activate
 
         LD A, 16                        ; X offset from ANCHOR sprite is 16
@@ -339,8 +371,8 @@ displaychip:
         LD A, %01000000                 ; set as RELATIVE and use relative pattern
         NEXTREG $79, A                  ; set attr byte 4 of port $0057
 
-
-        LD A, 2                         ; set second RELATIVE sprite
+        inc c
+        LD A, c                         ; set second RELATIVE sprite
         NEXTREG $34, A                  ; set sprite to activate
 
         LD A, 0                         ; X offset from ANCHOR sprite is 0
@@ -360,8 +392,8 @@ displaychip:
         LD A, %01000000                 ; set as RELATIVE and use relative pattern
         NEXTREG $79, A                  ; set attr byte 4 of port $0057
 
-
-        LD A, 3                         ; set second RELATIVE sprite
+        inc c
+        LD A, c                         ; set second RELATIVE sprite
         NEXTREG $34, A                  ; set sprite to activate
 
         LD A, 16                         ; X offset from ANCHOR sprite is 0
@@ -381,7 +413,7 @@ displaychip:
         LD A, %01000000                 ; set as RELATIVE and use relative pattern
         NEXTREG $79, A                  ; set attr byte 4 of port $0057
 
-;        HALT
+        pop bc
         RET
 
 

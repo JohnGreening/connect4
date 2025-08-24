@@ -91,10 +91,9 @@ keyEnter:
         ld a, 7                                 ; the row is 7 - chips in column                             
         sub b                                   ; get the row
         ld (rowSelected), a                     ; store the row selected
-        ld d, a                                 ; calculate E = (row * 32) + 28
-        ld e, 32
-        mul d, e
-        add de, 28
+        call getYPixel
+        ld d, 0
+        ld e, a
 
         ld a, soundDrop
         call playsound
@@ -104,10 +103,27 @@ keyEnter:
         jp nc, MainLoop
 
 winDetected:
+        ld a, soundTada1
+        call playsound
+        halt 
+        halt 
+        halt 
+        halt
+
+        ld a, soundTada2
+        call playsound
+        halt 
+        halt 
+        halt 
+        halt
+        ld a, soundTada3
+        call playsound
+
+wd1:
         ld bc, $7ffe
         in a, (c)
         and %00001000
-        jr nz, winDetected
+        jr nz, wd1
         jp newGame
 
 ; ----------------------------

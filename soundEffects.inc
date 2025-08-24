@@ -49,7 +49,7 @@ sound1:
 ; length in frames (50hz)
 ; filler to make each 16 bytes long
 
-; hit head sound
+; dropping chip sound
         DW 16000
         DW 100
         DW 15 * 256
@@ -58,44 +58,43 @@ sound1:
         DB 15
         DB 0,0,0,0,0,0
 
-; this is the pop sound
+; move left/right sound
 sound2:
-        DW 505
-        DW 0
+        DW 212
+        DW -6
         DW 14*256
-        DW 50
+        DW -10
         DB %0000001
-        DB 15
+        DB 4
         DB 0,0,0,0,0,0
 
-; bounce sound
+; tada 1
 sound3:
-        DW 252
-        DW -10
+        DW 212
+        DW -6
         DW 15*256
-        DW -100
+        DW -10
         DB 1
-sound3Dur
-        DB 15
+        DB 4
         DB 0,0,0,0,0,0
-
+; tada 2
 sound4:
-        DW 100
-        DW -10
+        DW 168
+        DW -4
         DW 15*256
-        DW -100
-        DB 3
-        DB 5
+        DW -10
+        DB 1
+        DB 4
         DB 0,0,0,0,0,0
 
-; item hit sound
+; tada 3
 sound5:
-        DW 100
-        DW -10
+        DW 141
+        DW -1
         DW 15*256
-        DW 20
-        DB %0000001
-        DB 10
+        DW -10
+        DB 1
+        DB 12
         DB 0,0,0,0,0,0
 
 ; kill skull sound
@@ -136,7 +135,7 @@ Ch3Length:   DB 0
 
 soundDrop      EQU 1
 soundKey       EQU 2
-soundBounce    EQU 3
-soundHitskull  EQU 4
-soundCollect   EQU 5
+soundTada1     EQU 3
+soundTada2     EQU 4
+soundTada3     EQU 5
 soundKillskull EQU 6
