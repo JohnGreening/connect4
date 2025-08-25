@@ -16,6 +16,8 @@ MAINPROG
         CALL setupIM2
         CALL spriteSetup                    ; initialise graphics
 newGame:
+        call killSprites
+        call tileMapOnTop
         CALL displayBoard
         call initialiseBoard
         call newGo
@@ -103,6 +105,7 @@ keyEnter:
         jp nc, MainLoop
 
 winDetected:
+        call winnerDisplay
         ld a, soundTada1
         call playsound
         halt 

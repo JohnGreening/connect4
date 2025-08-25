@@ -118,21 +118,45 @@ ib1:
         djnz ib1
         ret
 
+calcRowCol:
+; A = 0 .. 41
+; return D = row (1-6)
+;        E = col (1-7)
+        push bc
+        ld b, 0
+div7:
+        cp 7
+        jr c, div7Done
+        sub 7
+        inc b
+        jr div7
+div7Done:
+        ld e, a
+        inc e
+        ld d, b
+        inc d
+        pop bc
+        ret
+
 getYPixel:
 ; A= row value, where 0 = positioning chip before dropping
 ; return in A the Y pixel coord of the sprite
+        push de
         ld de, spritePixelY
         add de, a
         ld a, (de)
+        pop de
         ret
 
 getXPixel:
 ; A= column value, 1 - 7
 ; return in A the X pixel coord of the sprite
+        push de
         ld de, spritePixelX
         add de, a
         dec de
         ld a, (de)
+        pop de
         ret
 newGo:
         ld a, 0
@@ -199,6 +223,38 @@ checkLine:
         ld d, a                                 ; store back in d
         inc ix                                  ; next element in line
         djnz checkLine                          ; repeat for 4 elements
+        ret
+
+winnerDisplay:
+        call killSprites
+        call spritesOnTop
+        dec ix
+        dec ix
+        dec ix
+        dec ix
+        ld b, 4
+nextWinChip:
+        ld a, (spriteIndex)
+        add 4
+        ld (spriteIndex), a
+        ld a, (ix)
+        call displayWinChip
+        inc ix
+        djnz nextWinChip
+        ret
+displayWinChip:
+        call calcRowCol
+        ld a, d
+        call getYPixel
+        ld h, 0
+        ld l, a
+        ld (chipY), hl
+        ld a, e
+        call getXPixel
+        ld h, 0
+        ld l, a
+        ld (chipX), hl
+        call displaychip
         ret
 
 drawTilechip:

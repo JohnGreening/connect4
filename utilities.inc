@@ -26,6 +26,26 @@ ULAon
         NEXTREG $68, A
         RET
 
+tileMapOnTop
+        NEXTREG $15, %00010111
+        ; bit 7 1=enable lo-res 
+        ; bit 6 1=flip sprite rendering priority
+        ; bit 5 1=change clipping over border mode
+        ; bit 4-2 000 = S L U   Sprites over Layer 2 over ULA
+        ;         001 = L S U
+        ;         010 = S U L
+        ;         011 = L U S
+        ;         100 = U S L
+        ;         101 = U L S
+        ;         110 = S(U+L)
+        ;         111 = S(U+L -5)
+        ; bit 1 1=enable sprites over border
+        ; bit 0 1=enable sprite visibility
+        ret
+spritesOnTop
+        NEXTREG $15, %00000011
+        ret
+
 keyPause
         ld b, keyPauseLength
 kp1
