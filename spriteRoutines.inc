@@ -296,6 +296,7 @@ replaceSprite:
         mul d, e                                ; do it
         ld a, (columnSelected)                  ; get the column 
         dec a                                   ; make 0 based, a= 0 - 41
+        add a, e
 
         ld (lastPosition), a                    ; save it for later
         add de, a                               ; hence offset into array
