@@ -6,7 +6,7 @@ INCLUDE "utilities.inc"
 INCLUDE "levelSetup.inc"
 INCLUDE "spriteRoutines.inc"
 INCLUDE "soundEffects.inc"
-include "text.inc"
+include "textDisplay.inc"
 
 ; ----------------------------
 ; Game Initialization
@@ -16,16 +16,22 @@ MAINPROG
         NEXTREG $7, 0                       ; set speed to 28mhz
         CALL setupIM2
         CALL spriteSetup                    ; initialise graphics
+        call convertChars
+        call initWinPairLookup
+
 newGame:
         call killSprites
         call tileMapOnTop
         CALL displayBoard
         call initialiseBoard
-        call initWinPairLookup
-        ;call ULAon
-        ;call test1
+        ;ld a, 7
+        ;out ($fe), a
+        ld IY, txtTitle
+        call DispT
+        LD IY, txtInstruction1
+        call DispT
         call newGo
-;        call displaychip
+
 ; ----------------------------
 ; main game start
 ; ----------------------------

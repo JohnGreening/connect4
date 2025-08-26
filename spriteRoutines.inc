@@ -155,41 +155,6 @@ setSlotValue:
         add ix, bc
         jr .next
 
-
-
-;checkWin:
-;        ld ix, winningLines
-;        ld c, winningCombos        
-;nextLine:
-;        xor a
-;        ld d, 0
-;        ld b, 4
-;        call checkLine
-;        ld a, d
-;        cp yellowWin
-;        jr z, winner
-;        cp redWin
-;        jr z, winner
-;        dec c
-;        jr nz, nextLine
-;        xor a
-;        ret
-;
-;winner:
-;        scf
-;        ret
-;
-;checkLine:        
-;        ld a, (ix +0)                           ; pick up board element we want
-;        ld hl, board                            ; set base
-;        add hl, a                               ; add in element offset
-;        ld a, d                                 ; get current line value
-;        add (hl)                                ; add in this element
-;        ld d, a                                 ; store back in d
-;        inc ix                                  ; next element in line
-;        djnz checkLine                          ; repeat for 4 elements
-;        ret
-
 winnerDisplay:
         call killSprites
         call spritesOnTop
@@ -198,10 +163,6 @@ winnerDisplay:
         ld e, 4
         mul d, e
         add ix, de
-;        dec ix
-;        dec ix
-;        dec ix
-;        dec ix
         ld b, 4
 nextWinChip:
         ld a, (spriteIndex)
@@ -296,7 +257,7 @@ replaceSprite:
         mul d, e                                ; do it
         ld a, (columnSelected)                  ; get the column 
         dec a                                   ; make 0 based, a= 0 - 41
-        add a, e
+        add a, e                                ; a is now  0-41 !
 
         ld (lastPosition), a                    ; save it for later
         add de, a                               ; hence offset into array
