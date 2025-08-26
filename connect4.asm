@@ -6,6 +6,7 @@ INCLUDE "utilities.inc"
 INCLUDE "levelSetup.inc"
 INCLUDE "spriteRoutines.inc"
 INCLUDE "soundEffects.inc"
+include "text.inc"
 
 ; ----------------------------
 ; Game Initialization
@@ -20,6 +21,9 @@ newGame:
         call tileMapOnTop
         CALL displayBoard
         call initialiseBoard
+        call initWinPairLookup
+        ;call ULAon
+        ;call test1
         call newGo
 ;        call displaychip
 ; ----------------------------
@@ -101,8 +105,10 @@ keyEnter:
         call playsound
         call movechipDown
 
-        call checkWin
-        jp nc, MainLoop
+        call setSlotValue
+        jp c, winDetected
+        call newGo
+        jp MainLoop
 
 winDetected:
         call winnerDisplay

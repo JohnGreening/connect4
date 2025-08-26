@@ -3,12 +3,15 @@ chipX           defw 36
 chipY           defw 24
 chipPattern     db 0
 
-columnSelected  db 1
-rowSelected     db 0
-lastGo          db 0
+columnSelected  db 1                            ; holds last column 1 - 7
+rowSelected     db 0                            ; holds row used    0 - 6 (0 when selecting column)
+lastPosition    db 0                            ; board index 0 - 41 used
+lastGo          db 0                            ; last board value used 1 or 5
 
-columns         defs 7, 0
+columns         defs 7, 0                       ; how many chips are in each column
 board           defs 42, 0
+linesYellow     defs 69, 0
+linesRed        defs 69, 0
 
 maxColumn       equ 7
 minColumn       equ 1
@@ -23,95 +26,18 @@ yellowTile      equ 1                           ; tiles 1 - 9
 redTile         equ 24                          ; tiles 24 - 32
 
 ; board array values
-yellowGo        equ 1                               
-redGo           equ 5
+yellowGo        equ yellowChip +1
+redGo           equ redChip +1
+winValue        equ %00001111
 yellowWin       equ 4 * yellowGo
 redWin          equ 4 * redGo
 
-winningCombos   equ 69
-winningLines
-                DB 0,1,2,3
-                DB 1,2,3,4
-                DB 2,3,4,5
-                DB 3,4,5,6
-                DB 7,8,9,10
-                DB 8,9,10,11
-                DB 9,10,11,12
-                DB 10,11,12,13
-                DB 14,15,16,17
-                DB 15,16,17,18
-                DB 16,17,18,19
-                DB 17,18,19,20
-                DB 21,22,23,24
-                DB 22,23,24,25
-                DB 23,24,25,26
-                DB 24,25,26,27
-                DB 28,29,30,31
-                DB 29,30,31,32
-                DB 30,31,32,33
-                DB 31,32,33,34
-                DB 35,36,37,38
-                DB 36,37,38,39
-                DB 37,38,39,40
-                DB 38,39,40,41
-
-                DB 0,7,14,21
-                DB 7,14,21,28
-                DB 14,21,28,35
-                DB 1,8,15,22
-                DB 8,15,22,29
-                DB 15,22,29,36
-                DB 2,9,16,23
-                DB 9,16,23,30
-                DB 16,23,30,37
-                DB 3,10,17,24
-                DB 10,17,24,31
-                DB 17,24,31,38
-                DB 4,11,18,25
-                DB 11,18,25,32
-                DB 18,25,32,39
-                DB 5,12,19,26
-                DB 12,19,26,33
-                DB 19,26,33,40
-                DB 6,13,20,27
-                DB 13,20,27,34
-                DB 20,27,34,41
-
-                DB 0,8,16,24
-                DB 1,9,17,25
-                DB 2,10,18,26
-                DB 3,11,19,27
-                DB 7,15,23,31
-                DB 8,16,24,32
-                DB 9,17,25,33
-                DB 10,18,26,34
-                DB 14,22,30,38
-                DB 15,23,31,39
-                DB 16,24,32,40
-                DB 17,25,33,41
-
-                DB 21,15,9,3
-                DB 22,16,10,4
-                DB 23,17,11,5
-                DB 24,18,12,6
-                DB 28,22,16,10
-                DB 29,23,17,11
-                DB 30,24,18,12
-                DB 31,25,19,13
-                DB 35,29,23,17
-                DB 36,30,24,18
-                DB 37,31,25,19
-                DB 38,32,26,20
-
-spritePixelX    db 36, 68, 100, 132, 164, 196, 228
-spritePixelY    db 24, 60, 92, 124, 156, 188, 220
-
-
+INCLUDE "lookupTables.inc"
 
 initialiseBoard:
         ld a, 0
         ld hl, columns
-        ld b, 7+42
+        ld b,  7 +42 +69 +69
 ib1:
         ld (hl), a
         inc hl
@@ -192,46 +118,90 @@ ng1:
         ret
 
 
-checkWin:
-        ld ix, winningLines
-        ld c, winningCombos        
-nextLine:
-        xor a
-        ld d, 0
-        ld b, 4
-        call checkLine
-        ld a, d
-        cp yellowWin
-        jr z, winner
-        cp redWin
-        jr z, winner
-        dec c
-        jr nz, nextLine
-        xor a
-        ret
+setSlotValue:
+; point to the list of lines that contain the board position
+; there could be up to 13 lines
+        ld ix, winPairLookupBase                ; point to the WL/mask base table
+        ld a, (lastPosition)                    ; get last BI
+        ld d, a                                 ; save in D ready for offset to add to IX
+        ld e, 28                                ; each WL/mask line is 28 bytes for each BI
+        mul d, e                                ; do the multiplication
+        add ix, de                              ; and hence point IX to thr WL/mask for this BI
 
-winner:
-        scf
-        ret
+        ld a, (lastGo)
+        cp yellowGo
+        ld de, linesYellow
+        jr z, .baseSet
+        ld de, linesRed
+.baseSet:
+.next
+        or a                                    ; reset carry flag
+        ld a, (ix)                              ; get the line this chip is in
+        cp 255                                  ; are we at the end of the list
+        ret z                                   ; exit if so
 
-checkLine:        
-        ld a, (ix +0)                           ; pick up board element we want
-        ld hl, board                            ; set base
-        add hl, a                               ; add in element offset
-        ld a, d                                 ; get current line value
-        add (hl)                                ; add in this element
-        ld d, a                                 ; store back in d
-        inc ix                                  ; next element in line
-        djnz checkLine                          ; repeat for 4 elements
-        ret
+        ld c, a                                 ; save the line in case of a win for winnerDisplay
+        ld l, a                                 ; point to slot
+        ld h, 0
+        add hl, de
+
+        ld a, (hl)                              ; get current slot value
+        or (ix+1)                               ; add new chip
+        ld (hl), a                              ; and save it back
+        cp winValue                             ; is a win detected
+        scf                                     ; set carry in anticpation of win
+        ret z                                   ; and exit if so
+        ld bc, 2                                ; otherwise carry on with list
+        add ix, bc
+        jr .next
+
+
+
+;checkWin:
+;        ld ix, winningLines
+;        ld c, winningCombos        
+;nextLine:
+;        xor a
+;        ld d, 0
+;        ld b, 4
+;        call checkLine
+;        ld a, d
+;        cp yellowWin
+;        jr z, winner
+;        cp redWin
+;        jr z, winner
+;        dec c
+;        jr nz, nextLine
+;        xor a
+;        ret
+;
+;winner:
+;        scf
+;        ret
+;
+;checkLine:        
+;        ld a, (ix +0)                           ; pick up board element we want
+;        ld hl, board                            ; set base
+;        add hl, a                               ; add in element offset
+;        ld a, d                                 ; get current line value
+;        add (hl)                                ; add in this element
+;        ld d, a                                 ; store back in d
+;        inc ix                                  ; next element in line
+;        djnz checkLine                          ; repeat for 4 elements
+;        ret
 
 winnerDisplay:
         call killSprites
         call spritesOnTop
-        dec ix
-        dec ix
-        dec ix
-        dec ix
+        ld ix, winningLines
+        ld d, c
+        ld e, 4
+        mul d, e
+        add ix, de
+;        dec ix
+;        dec ix
+;        dec ix
+;        dec ix
         ld b, 4
 nextWinChip:
         ld a, (spriteIndex)
@@ -325,21 +295,16 @@ replaceSprite:
         ld e, maxColumn                         ; multiply by 7
         mul d, e                                ; do it
         ld a, (columnSelected)                  ; get the column 
-        dec a                                   ; make 0 based
+        dec a                                   ; make 0 based, a= 0 - 41
+
+        ld (lastPosition), a                    ; save it for later
         add de, a                               ; hence offset into array
         add de, board                           ; and add array base
 
-; determine value to set in the array
-        ld b, yellowGo
-        ld a, (chipPattern)
-        cp yellowChip
-        jr z, setBoardChip
-        ld b, redGo
-setBoardChip
-        ld a, b
+        ld a, (chipPattern)                     ; get chipPattern, 0 or 4
+        inc a                                   ; board value is 1 or 5
         ld (de), a
         ld (lastGo), a
-        call newGo        
 
         ret
 
@@ -472,6 +437,84 @@ displaychip:
         pop bc
         RET
 
+initWinPairLookup:
+	call initLineMaskPair                   ; initialise 42 line/mask pair values with 255
+	ld iy, winPairLookupBase                ; point to this table
+	ld b, 0                                 ; B is the board index (BI) to search for
 
+l4:	ld ix, winningLines                     ; point to the winning lines table
+	push iy                                 ; save the winPairLookup table
+	ld c, 0                                 ; C is the winning line counter (WL)
 
-
+l5:	call chkLineForB                        ; check winning line for an occurance of B
+	ld de, 4                                ; prepare to point to the next winning line
+	add ix, de                              ; do it
+	inc c                                   ; update winline counter
+	ld a, c                                 ; get the winline counter
+	cp 69                                   ; there are 69 (0..68)
+	jr nz, l5                               ; branch if more winlines to process for this BI
+	pop iy                                  ; this BI value complete, so restore WL/mask pointer to start for this BI
+	ld de, 28                               ; max 13 entries with a 255 end marker, so add 28
+	add iy, de                              ; do the add
+	inc b                                   ; BI = BI + 1
+	ld a, b                                 ; put in A to check
+	cp 42                                   ; are we at the end (0..41)
+	jr nz, l4                               ; branch if more to do
+	ret                                     ; otherwise we are complete
+	
+	
+chkLineForB:	
+	push ix                                 ; save current winning line
+	push bc                                 ; save the BI and WL
+	ld d, b                                 ; temporarily use D for BI
+	ld b, 4                                 ; each winning line is 4 values
+l2:	ld a, (ix)                              ; get one of the winning line values
+	cp d                                    ; is it BI
+	jr z, foundIndex                        ; branch if it is
+	inc ix                                  ; otherwise point to the next
+	djnz l2                                 ; and repeat for all 4 values
+l3:	pop bc                                  ; done, so restore BI, WL
+	pop ix                                  ; and the current winning line
+	ret                                     ; and return
+foundIndex:	
+	call setMask                            ; determine the mask value in E, i.e. 8, 4, 2, 1
+	ld a, c                                 ; get the winning line index
+	ld (iy), a                              ; save the winning line number
+	inc iy                                  ; and advance IY for the mask value
+	ld a, e                                 ; get the mask value
+	ld (iy), a                              ; save the mask value
+	inc iy                                  ; and advance for next WL/mask pair for this BI
+	jr l3                                   ; jump back, done with this winning line
+		
+setMask:	
+	ld a, b                                 ; which value matched BI in the winning line lookup
+	cp 4                                    ; was it 1st
+	jr z, p0                                ; branch if so
+	cp 3                                    ; was it 2nd
+	jr z, p1                                ; branch if so
+	cp 2                                    ; etc ..
+	jr z, p2
+	cp 1
+	jr z, p3
+	ret
+p0:	ld e, 8                                 ; 1st spot, so set mask as %0000 1000
+	ret
+p1:	ld e, 4                                 ; 2nd spot, so set mask as %0000 0100
+	ret
+p2:	ld e, 2
+	ret
+p3:	ld e, 1
+	ret
+	
+	
+initLineMaskPair	
+	ld bc, 42*28
+	ld hl, winPairLookupBase
+l1:	ld a, 255
+	ld (hl), a
+	inc hl
+	dec bc 
+	ld a, b
+	or c
+	jr nz, l1 
+	ret
