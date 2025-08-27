@@ -132,12 +132,14 @@ randomX
         LD L, D
         RET
 
-keySpace
-        LD BC, $7ffe                        ; port for keys: space, sym, mnb
+keyC
+        push bc
+        LD BC, $fefe                        ; port for key
         IN A, (C)                           ; read port
-        BIT 0, A                            ; test for space key
+        pop bc
+        BIT 3, A                            ; test for key
         RET Z                               ; return if pressed
-        JR keySpace                         ; otherwise loop
+        JR keyC                             ; otherwise loop
 
 LFSRSeed DB $12, $34, $56, $78, $9a, $bc, $de, $f0
 rseed    DB 1

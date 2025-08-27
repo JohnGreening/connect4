@@ -5,13 +5,15 @@ chipPattern     db 0
 
 columnSelected  db 1                            ; holds last column 1 - 7
 rowSelected     db 0                            ; holds row used    0 - 6 (0 when selecting column)
-lastPosition    db 0                            ; board index 0 - 41 used
+lastCell        db 0                            ; board index 0 - 41 used
 lastGo          db 0                            ; last board value used 1 or 5
 
 columns         defs 7, 0                       ; how many chips are in each column
 board           defs 42, 0
-linesYellow     defs 69, 0
-linesRed        defs 69, 0
+lineCount       defs 69, 0
+lineFill        defs 69, 0
+;linesYellow     defs 69, 0
+;linesRed        defs 69, 0
 
 maxColumn       equ 7
 minColumn       equ 1
@@ -28,9 +30,9 @@ redTile         equ 24                          ; tiles 24 - 32
 ; board array values
 yellowGo        equ yellowChip +1
 redGo           equ redChip +1
-winValue        equ %00001111
-yellowWin       equ 4 * yellowGo
-redWin          equ 4 * redGo
+;winValue        equ %00001111
+;yellowWin       equ 4 * yellowGo
+;redWin          equ 4 * redGo
 
 INCLUDE "lookupTables.inc"
 
@@ -121,44 +123,64 @@ ng1:
 setSlotValue:
 ; point to the list of lines that contain the board position
 ; there could be up to 13 lines
-        ld ix, winPairLookupBase                ; point to the WL/mask base table
-        ld a, (lastPosition)                    ; get last BI
-        ld d, a                                 ; save in D ready for offset to add to IX
-        ld e, 28                                ; each WL/mask line is 28 bytes for each BI
-        mul d, e                                ; do the multiplication
-        add ix, de                              ; and hence point IX to thr WL/mask for this BI
+ ;       ld iy, tileMapData
+ ;       ld hl, lineCount + 29
+ ;       ld a, (hl)
+ ;       call DispA
+ ;       call keyC
 
-        ld a, (lastGo)
-        cp yellowGo
-        ld de, linesYellow
-        jr z, .baseSet
-        ld de, linesRed
-.baseSet:
+
+        ld ix, cellWinLines                     ; point to base of BI -> win line list
+        ld a, (lastCell)                        ; get last BI
+                
+        ld d, a                                 ; save in D ready for offset to add to IX
+        ld e, 14                                ; each line is 14 bytes for each BI
+        mul d, e                                ; do the multiplication
+        add ix, de                              ; and hence point IX to the winLines for this BI
+
+        ld de, lineCount                        ; point to base of lineCount table
+
+baseSet:
 .next
-        or a                                    ; reset carry flag
-        ld a, (ix)                              ; get the line this chip is in
+        ld c, 255
+        ld a, (ix)                              ; get one of the win lines this chip is in
         cp 255                                  ; are we at the end of the list
         ret z                                   ; exit if so
 
-        ld c, a                                 ; save the line in case of a win for winnerDisplay
-        ld l, a                                 ; point to slot
+        ld c, a                                 ; save the win line in case of a win for winnerDisplay
+        ld l, a                                 ; DE is the lineCount base, so we construct HL to add to it
         ld h, 0
-        add hl, de
+        add hl, de                              ; HL points to lineCount(win line for BI(0..41))
 
-        ld a, (hl)                              ; get current slot value
-        or (ix+1)                               ; add new chip
-        ld (hl), a                              ; and save it back
-        cp winValue                             ; is a win detected
-        scf                                     ; set carry in anticpation of win
-        ret z                                   ; and exit if so
-        ld bc, 2                                ; otherwise carry on with list
-        add ix, bc
-        jr .next
+        ld a, (lastGo)
+        cp yellowGo
+        jr z, .yellowGo
+        cp redGo
+        jr z, .redGo
+        jp 0
+.redGo
+        dec (hl)
+        ld a, (hl)
+        cp 252                                  ; a score of -4 significes a Red win !
+        ret z
+        jr .noWin
+
+.yellowGo
+        inc (hl)
+        ld a, (hl)
+        cp 4                                    ; a score of +4 signifies a Yellow win !
+        ret z
+.noWin
+        add hl, 69
+        inc (hl)
+        ld c, 255
+        inc ix
+        jr baseSet
 
 winnerDisplay:
         call killSprites
         call spritesOnTop
-        ld ix, winningLines
+        ld ix, winLines
         ld d, c
         ld e, 4
         mul d, e
@@ -259,9 +281,9 @@ replaceSprite:
         dec a                                   ; make 0 based, a= 0 - 41
         add a, e                                ; a is now  0-41 !
 
-        ld (lastPosition), a                    ; save it for later
+        ld (lastCell), a                        ; save it for later
+        ld de, board                            ; set board base
         add de, a                               ; hence offset into array
-        add de, board                           ; and add array base
 
         ld a, (chipPattern)                     ; get chipPattern, 0 or 4
         inc a                                   ; board value is 1 or 5
@@ -399,32 +421,35 @@ displaychip:
         pop bc
         RET
 
-initWinPairLookup:
-	call initLineMaskPair                   ; initialise 42 line/mask pair values with 255
-	ld iy, winPairLookupBase                ; point to this table
-	ld b, 0                                 ; B is the board index (BI) to search for
+initCellWinLines:
+; given the winLine table (what cells are included in each of the 69 win lines)
+; we now construct a similar table holding what those win lines are for a given cell (0..41)
+; a cell will have between 3 and 13 win lines associated with it.
 
-l4:	ld ix, winningLines                     ; point to the winning lines table
+	call initCellWinLineRows                ; initialise 42 line/mask pair values with 255
+	ld iy, cellWinLines                     ; point to this table
+	ld b, 0                                 ; B is the cell board index (BI) to search for
+
+l4:	ld ix, winLines                         ; point to the table holding what cells are applicable to each of the 69 win lines 
 	push iy                                 ; save the winPairLookup table
-	ld c, 0                                 ; C is the winning line counter (WL)
+	ld c, 0                                 ; C is the win line counter (WL)
 
 l5:	call chkLineForB                        ; check winning line for an occurance of B
-	ld de, 4                                ; prepare to point to the next winning line
+	ld de, 4                                ; prepare to point to the next win line
 	add ix, de                              ; do it
 	inc c                                   ; update winline counter
 	ld a, c                                 ; get the winline counter
 	cp 69                                   ; there are 69 (0..68)
 	jr nz, l5                               ; branch if more winlines to process for this BI
 	pop iy                                  ; this BI value complete, so restore WL/mask pointer to start for this BI
-	ld de, 28                               ; max 13 entries with a 255 end marker, so add 28
+	ld de, 14                               ; max 13 entries with a 255 end marker, so add 14
 	add iy, de                              ; do the add
 	inc b                                   ; BI = BI + 1
 	ld a, b                                 ; put in A to check
 	cp 42                                   ; are we at the end (0..41)
 	jr nz, l4                               ; branch if more to do
 	ret                                     ; otherwise we are complete
-	
-	
+		
 chkLineForB:	
 	push ix                                 ; save current winning line
 	push bc                                 ; save the BI and WL
@@ -439,39 +464,15 @@ l3:	pop bc                                  ; done, so restore BI, WL
 	pop ix                                  ; and the current winning line
 	ret                                     ; and return
 foundIndex:	
-	call setMask                            ; determine the mask value in E, i.e. 8, 4, 2, 1
-	ld a, c                                 ; get the winning line index
-	ld (iy), a                              ; save the winning line number
-	inc iy                                  ; and advance IY for the mask value
-	ld a, e                                 ; get the mask value
-	ld (iy), a                              ; save the mask value
-	inc iy                                  ; and advance for next WL/mask pair for this BI
+	ld a, c                                 ; get the win line index
+	ld (iy), a                              ; save the win line index in cellWinLines
+	inc iy                                  ; and advance IY for the next winline write
 	jr l3                                   ; jump back, done with this winning line
-		
-setMask:	
-	ld a, b                                 ; which value matched BI in the winning line lookup
-	cp 4                                    ; was it 1st
-	jr z, p0                                ; branch if so
-	cp 3                                    ; was it 2nd
-	jr z, p1                                ; branch if so
-	cp 2                                    ; etc ..
-	jr z, p2
-	cp 1
-	jr z, p3
-	ret
-p0:	ld e, 8                                 ; 1st spot, so set mask as %0000 1000
-	ret
-p1:	ld e, 4                                 ; 2nd spot, so set mask as %0000 0100
-	ret
-p2:	ld e, 2
-	ret
-p3:	ld e, 1
-	ret
+			
 	
-	
-initLineMaskPair	
-	ld bc, 42*28
-	ld hl, winPairLookupBase
+initCellWinLineRows
+	ld bc, 42*14
+	ld hl, cellWinLines
 l1:	ld a, 255
 	ld (hl), a
 	inc hl

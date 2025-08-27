@@ -17,7 +17,7 @@ MAINPROG
         CALL setupIM2
         CALL spriteSetup                    ; initialise graphics
         call convertChars
-        call initWinPairLookup
+        call initCellWinLines
 
 newGame:
         call killSprites
@@ -112,11 +112,17 @@ keyEnter:
         call movechipDown
 
         call setSlotValue
-        jp c, winDetected
+        ld a, c
+        cp 255
+        jp nz, winDetected
         call newGo
         jp MainLoop
 
 winDetected:
+        ld iy, tileMapData
+        call DispA
+        call keyC
+
         call winnerDisplay
         ld a, soundTada1
         call playsound

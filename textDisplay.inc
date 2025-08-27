@@ -3,13 +3,17 @@ DispA
 ; pass IY with location to display A
 ; routine will display A (retained)
         PUSH HL
+        PUSH DE
         PUSH BC
         PUSH AF
+        PUSH IX
         LD H, 0
         LD L, A
         CALL DispA3Digit
+        POP IX
         POP AF
         POP BC
+        POP DE
         POP HL
         RET
 DispA1
