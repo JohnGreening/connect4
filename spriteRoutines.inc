@@ -4,14 +4,20 @@ chipY           defw 24
 chipPattern     db 4
 
 columnSelected  db 1                            ; holds last column 1 - 7
-rowSelected     db 0                            ; holds row used    0 - 6 (0 when selecting column)
+rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)
 lastCell        db 0                            ; board index 0 - 41 used
 lastGo          db 0                            ; last board value used 1 or 5
 
 columns         defs 7, 0                       ; how many chips are in each column
-board           defs 42, 0
-lineScore       defs 69, 0
-lineCount       defs 69, 0
+board           defs 42, 0                      ; board layout, currently unused !
+lineScore       defs 69, 0                      ; for each win line, a score (each yellow +1, each red -1, +4/-4 = win)
+lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
+copycolumns     defs 7, 0                       ; copy of the above 4 for use in AI move
+copyboard       defs 42, 0
+copylineScore   defs 69, 0                      
+copylineCount   defs 69, 0
+
+
 
 maxColumn       equ 7
 minColumn       equ 1

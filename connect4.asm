@@ -8,6 +8,7 @@ INCLUDE "spriteRoutines.inc"
 INCLUDE "soundEffects.inc"
 include "textDisplay.inc"
 include "macros.inc"
+include "aiProcessing.inc"
 
 ; ----------------------------
 ; Game Initialization
@@ -33,6 +34,10 @@ newGame:
 ; main game start
 ; ----------------------------
 MainLoop:
+        ld a, (chipPattern)
+        cp redChip
+        jp z, AIMove
+
         LD BC, $dffe                            ; keyboard port for Y, U, I, O, P
         IN A, (C)                               ; read port
         AND %00000001                           ; bit 0 is "P"
@@ -146,6 +151,14 @@ wd1:
         and %00001000
         jr nz, wd1
         jp newGame
+
+AIMove:
+        call copyBoardState
+        call aiBasicMove
+        call pickBestAIMove
+        inc a
+        ld (columnSelected), a
+        jp keyEnter
 
 ; ----------------------------
 ; Program End
