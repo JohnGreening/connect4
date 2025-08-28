@@ -7,63 +7,60 @@ INCLUDE "levelSetup.inc"
 INCLUDE "spriteRoutines.inc"
 INCLUDE "soundEffects.inc"
 include "textDisplay.inc"
+include "macros.inc"
 
 ; ----------------------------
 ; Game Initialization
 ; ----------------------------
 MAINPROG
 ; this stuff is only called ONCE
-        NEXTREG $7, 0                       ; set speed to 28mhz
-        CALL setupIM2
-        CALL spriteSetup                    ; initialise graphics
-        call convertChars
-        call initCellWinLines
+        NEXTREG $7, 0                           ; set processor speed
+        CALL setupIM2                           ; set-up sound effects routine
+        CALL spriteSetup                        ; initialise graphics
+        call convertChars                       ; convert some tiles to chars
+        call initCellWinLines                   ; create cellWinLines table
 
 newGame:
-        call killSprites
-        call tileMapOnTop
-        CALL displayBoard
-        call initialiseBoard
-        ;ld a, 7
-        ;out ($fe), a
-        ld IY, txtTitle
-        call DispT
-        LD IY, txtInstruction1
-        call DispT
+        call killSprites                        ; remove any sprites that may be around
+        call tileMapOnTop                       ; ensure tileMap priority in display
+        CALL displayBoard                       ; show the Connect 4 board
+        call initialiseBoard                    ; initialise internal values
+        displayText txtTitle
+        displayText txtInstruction1
         call newGo
 
 ; ----------------------------
 ; main game start
 ; ----------------------------
 MainLoop:
-        LD BC, $dffe
-        IN A, (C)
-        AND %00000001
-        JR Z, keyRight
-        IN A, (C)
-        AND %00000010
-        JR Z, keyLeft
+        LD BC, $dffe                            ; keyboard port for Y, U, I, O, P
+        IN A, (C)                               ; read port
+        AND %00000001                           ; bit 0 is "P"
+        JR Z, keyRight                          ; branch if pressed
+        IN A, (C)                               ; read port again
+        AND %00000010                           ; bit 1 is "O"
+        JR Z, keyLeft                           ; branch if pressed
 
-        LD BC, $7ffe
-        IN A, (C)
-        AND %00000001
-        JR Z, keyEnter
+        LD BC, $7ffe                            ; keyboard port for B, N, M, sym, space
+        IN A, (C)                               ; read port
+        AND %00000001                           ; bit 0 is "spacebar"
+        JR Z, keyEnter                          ; branch if pressed
 
 ; ----------------------------
 ; Exit Handling (X key)
 ; ----------------------------
 CheckExit:
-        LD BC, $fefe                ; key group: shift, Z, X, C, V
-        IN A, (C)
-        AND %00000100               ; bit 2 = X
-        JR NZ, MainLoop             ; X not pressed → continue game
-        jp EndProgram               ; X pressed → end program
+        LD BC, $fefe                            ; keyboard port for V, C, X, Z, shift
+        IN A, (C)                               ; read port
+        AND %00000100                           ; bit 2 is "X"
+        JR NZ, MainLoop                         ; X not pressed → continue game
+        jp EndProgram                           ; X pressed → end program
 
 keyRight:
-        call keyPause
-        LD A, soundKey
-        CALL playsound
+        call keyPause                           ; delay processing
+        playSoundEffect soundKey
         LD A, (columnSelected)
+
         INC A
         CP maxColumn + 1
         JR NZ, scc1
@@ -75,8 +72,8 @@ scc1:
 
 keyLeft:
         call keyPause
-        LD A, soundKey
-        call playsound
+        playSoundEffect soundKey
+
         LD A, (columnSelected)
         DEC A
         CP minColumn - 1
@@ -103,42 +100,44 @@ keyEnter:
         ld a, 7                                 ; the row is 7 - chips in column                             
         sub b                                   ; get the row
         ld (rowSelected), a                     ; store the row selected
-        call getYPixel
-        ld d, 0
-        ld e, a
 
-        ld a, soundDrop
-        call playsound
+        playSoundEffect soundDrop
         call movechipDown
 
+; determine board aray element
+        ld a, (chipPattern)                     ; get chipPattern, 0 or 4
+        inc a                                   ; board value is 1 or 5
+        ld (lastGo), a
+
+        ld a, (rowSelected)                     ; get row
+        dec a                                   ; make 0 based
+        ld d, a                                 ; put in D ready for multiplication
+        ld e, 7                                 ; multiply by 7
+        mul d, e                                ; do it
+        ld a, (columnSelected)                  ; get the column 
+        dec a                                   ; make 0 based, a= 0 - 41
+        add a, e                                ; a is now  0-41 !
+
         call setSlotValue
-        ld a, c
-        cp 255
-        jp nz, winDetected
+        cp 4
+        jr z, winDetected
         call newGo
         jp MainLoop
 
 winDetected:
-        ld iy, tileMapData
-        call DispA
-        call keyC
-
         call winnerDisplay
-        ld a, soundTada1
-        call playsound
+        playSoundEffect soundTada1
         halt 
         halt 
         halt 
         halt
 
-        ld a, soundTada2
-        call playsound
+        playSoundEffect soundTada2
         halt 
         halt 
         halt 
         halt
-        ld a, soundTada3
-        call playsound
+        playSoundEffect soundTada3
 
 wd1:
         ld bc, $7ffe

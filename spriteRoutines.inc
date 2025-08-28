@@ -1,7 +1,7 @@
 spriteIndex     db 0
 chipX           defw 36
 chipY           defw 24
-chipPattern     db 0
+chipPattern     db 4
 
 columnSelected  db 1                            ; holds last column 1 - 7
 rowSelected     db 0                            ; holds row used    0 - 6 (0 when selecting column)
@@ -10,10 +10,8 @@ lastGo          db 0                            ; last board value used 1 or 5
 
 columns         defs 7, 0                       ; how many chips are in each column
 board           defs 42, 0
+lineScore       defs 69, 0
 lineCount       defs 69, 0
-lineFill        defs 69, 0
-;linesYellow     defs 69, 0
-;linesRed        defs 69, 0
 
 maxColumn       equ 7
 minColumn       equ 1
@@ -30,13 +28,13 @@ redTile         equ 24                          ; tiles 24 - 32
 ; board array values
 yellowGo        equ yellowChip +1
 redGo           equ redChip +1
-;winValue        equ %00001111
-;yellowWin       equ 4 * yellowGo
-;redWin          equ 4 * redGo
 
 INCLUDE "lookupTables.inc"
 
+
 initialiseBoard:
+; input   : none
+; initialise columns, board, lineScore, lineCount 
         ld a, 0
         ld hl, columns
         ld b,  7 +42 +69 +69
@@ -46,25 +44,6 @@ ib1:
         djnz ib1
         ret
 
-calcRowCol:
-; A = 0 .. 41
-; return D = row (1-6)
-;        E = col (1-7)
-        push bc
-        ld b, 0
-div7:
-        cp 7
-        jr c, div7Done
-        sub 7
-        inc b
-        jr div7
-div7Done:
-        ld e, a
-        inc e
-        ld d, b
-        inc d
-        pop bc
-        ret
 
 getYPixel:
 ; A= row value, where 0 = positioning chip before dropping
@@ -86,6 +65,7 @@ getXPixel:
         ld a, (de)
         pop de
         ret
+
 newGo:
         ld a, 0
         ld (spriteIndex), a
@@ -109,7 +89,7 @@ newGo:
         ld (chipPattern), a
 
         call displaychip
-
+ 
 ; wait until space bar is NOT being pressed
 ; otherwise might take as a go when user not ready
 ng1:
@@ -121,93 +101,107 @@ ng1:
 
 
 setSlotValue:
-; point to the list of lines that contain the board position
-; there could be up to 13 lines
- ;       ld iy, tileMapData
- ;       ld hl, lineCount + 29
- ;       ld a, (hl)
- ;       call DispA
- ;       call keyC
-
-
-        ld ix, cellWinLines                     ; point to base of BI -> win line list
-        ld a, (lastCell)                        ; get last BI
-                
-        ld d, a                                 ; save in D ready for offset to add to IX
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   Determine if a win has occured after updating columns
+; Input   :   A = board index BI (0..41)
+; Output  :   A = 4 if win is detected, otherwise 255
+;             C = first win line detected if any
+; Updates :   lineScore
+;             lineCount
+;----------------------------------------------------------------------------------------------------------------
+        ld ix, cellWinLines                     ; point to base of cellWinLines (what winLines apply to this BI)
+        ld d, a                                 ; prepare to multiply for index offset
         ld e, 14                                ; each line is 14 bytes for each BI
         mul d, e                                ; do the multiplication
         add ix, de                              ; and hence point IX to the winLines for this BI
-
-        ld de, lineCount                        ; point to base of lineCount table
-
-baseSet:
-.next
-        ld c, 255
+        ld de, lineScore                        ; point to base of lineScore table
+nextWinLine:
         ld a, (ix)                              ; get one of the win lines this chip is in
         cp 255                                  ; are we at the end of the list
         ret z                                   ; exit if so
 
-        ld c, a                                 ; save the win line in case of a win for winnerDisplay
-        ld l, a                                 ; DE is the lineCount base, so we construct HL to add to it
-        ld h, 0
-        add hl, de                              ; HL points to lineCount(win line for BI(0..41))
+        ld c, a                                 ; we need to keep hold of the winline                
+        ld l, a
+        ld h, 0                                 ; DE is the lineCount base, so we construct HL to add to it
+        add hl, de                              ; HL points to lineScore(winline)
 
-        ld a, (lastGo)
-        cp yellowGo
-        jr z, .yellowGo
-        cp redGo
-        jr z, .redGo
-        jp 0
-.redGo
-        dec (hl)
-        ld a, (hl)
-        cp 252                                  ; a score of -4 significes a Red win !
-        ret z
-        jr .noWin
+        ld a, (lastGo)                          ; who moved last
+        cp yellowGo                             ; was it yellow?
+        jr z, .yellowGo                         ; branch for yellow if so
+        jr    .redGo                            ; branch for red
+.redGo:
+        dec (hl)                                ; for Red we deduct 1 from the lineScore
+        ld a, (hl)                              ; return the value
+        neg                                     ; a win for red is -4 (252), convert to +ve for win check
+        ld b, a                                 ; save it 
+        jr winCheck                             ; and check for a win
+.yellowGo:
+        inc (hl)                                ; for yellow we add 1 to the lineScore
+        ld a, (hl)                              ; return the value
+        ld b, a                                 ; save it
+winCheck:
+        add hl, 69                              ; first update the lineFill table (it follows lineScore, i.e. +69 bytes)
+        inc (hl)                                ; this is just a running count of counters in the line
+        ld a, b                                 ; get the saved lineScore
+        cp 4                                    ; has anyone won?
+        ret z                                   ; return if so
+        inc ix                                  ; point to next winline        
+        jr nextWinLine                          ; otherwise check next winline
 
-.yellowGo
-        inc (hl)
-        ld a, (hl)
-        cp 4                                    ; a score of +4 signifies a Yellow win !
-        ret z
-.noWin
-        add hl, 69
-        inc (hl)
-        ld c, 255
-        inc ix
-        jr baseSet
 
 winnerDisplay:
+; 4 in a line has been detected !
+; input C = first win line where 4 in a line detected
         call killSprites
         call spritesOnTop
-        ld ix, winLines
-        ld d, c
-        ld e, 4
-        mul d, e
-        add ix, de
-        ld b, 4
+
+        ld ix, winLines                         ; point to base of winLines array
+        ld d, c                                 ; get our win line detected
+        ld e, 4                                 ; each row is 4 bytes
+        mul d, e                                ; multiply out to get the index offset
+        add ix, de                              ; add to base
+        ld b, 4                                 ; there are 4 entries to process
 nextWinChip:
-        ld a, (spriteIndex)
-        add 4
-        ld (spriteIndex), a
-        ld a, (ix)
-        call displayWinChip
-        inc ix
-        djnz nextWinChip
-        ret
+        ld a, (spriteIndex)                     ; get the current sprite #
+        add 4                                   ; each big chip is 4 sprites
+        ld (spriteIndex), a                     ; save it back
+        ld a, (ix)                              ; get cell (0..41) in the winLine
+        call displayWinChip                     ; draw our big chip
+        inc ix                                  ; advance to next cell in the winline
+        djnz nextWinChip                        ; repeat if more to do
+        ret                                     ; done !
 displayWinChip:
-        call calcRowCol
-        ld a, d
-        call getYPixel
+        call calcRowCol                         ; given A=0..41 return D (row 1-6) and E (col 1-7)
+        ld a, d                                 ; get row
+        call getYPixel                          ; calculate Y pixel
         ld h, 0
         ld l, a
-        ld (chipY), hl
-        ld a, e
-        call getXPixel
+        ld (chipY), hl                          
+        ld a, e                                 ; get col
+        call getXPixel                          ; calculate X pixel
         ld h, 0
         ld l, a
         ld (chipX), hl
-        call displaychip
+        call displaychip                        ; show the chip
+        ret
+calcRowCol:
+; A = 0 .. 41
+; return D = row (1-6)
+;        E = col (1-7)
+        push bc
+        ld b, 0
+div7:
+        cp 7
+        jr c, div7Done
+        sub 7
+        inc b
+        jr div7
+div7Done:
+        ld e, a
+        inc e
+        ld d, b
+        inc d
+        pop bc
         ret
 
 drawTilechip:
@@ -271,25 +265,6 @@ replaceSprite:
         inc a
         ld (hl), a
 
-; determine board aray element
-        ld a, (rowSelected)                     ; get row
-        dec a                                   ; make 0 based
-        ld d, a                                 ; put in D ready for multiplication
-        ld e, maxColumn                         ; multiply by 7
-        mul d, e                                ; do it
-        ld a, (columnSelected)                  ; get the column 
-        dec a                                   ; make 0 based, a= 0 - 41
-        add a, e                                ; a is now  0-41 !
-
-        ld (lastCell), a                        ; save it for later
-        ld de, board                            ; set board base
-        add de, a                               ; hence offset into array
-
-        ld a, (chipPattern)                     ; get chipPattern, 0 or 4
-        inc a                                   ; board value is 1 or 5
-        ld (de), a
-        ld (lastGo), a
-
         ret
 
 
@@ -303,120 +278,124 @@ movechipLR:
         ret
 
 movechipDown:
-        ld hl, (chipY)
-        inc hl
-        ld a, l
-        cp e
-        jr z, mcd1
-        ld (chipY), hl
-        call displaychip
-        jr movechipDown
-mcd1:
-        call drawTilechip
+        ld a, (rowSelected)                     ; get the row we drop to (1-6)
+        call getYPixel                          ; return in A the y pixel drop position
+        ld e, a                                 ; save it for compare
+.mcd
+        ld hl, (chipY)                          ; get chip current Y pixel 
+        inc hl                                  ; add 1 pixel
+        ld a, l                                 ; prepare for compare
+        cp e                                    ; compare with final drop position
+        jr z, .mcdExit                          ; branch if we've got these
+        ld (chipY), hl                          ; otherwise save 
+        call displaychip                        ; display the chip in new position
+        jr .mcd                                 ; and loop
+.mcdExit:
+        call drawTilechip                       ; final resting place, replace with an equivalent tile
         ret
 
 displaychip:
         push bc
-        LD A, (spriteIndex)             ; set the sprite index
-        ld c, a                         ; store in c
-        NEXTREG $34, A                  ; set sprite to activate
+        LD A, (spriteIndex)                     ; set the sprite index
+        ld c, a                                 ; store in c
+        NEXTREG $34, A                          ; set sprite to activate
 
         LD HL, (chipX)
-        LD A, L                         ; get sprite X lsb
-        NEXTREG $35, A                  ; set attr byte 0 of port $0057
+        LD A, L                                 ; get sprite X lsb
+        NEXTREG $35, A                          ; set attr byte 0 of port $0057
 
-        LD A, H                         ; get sprite X msb
-        AND 1                           ; only need bit 0 of X msb
-        NEXTREG $37, A                  ; bits 7-4 palette offset
-                                        ;        3 1=enable X mirroring
-                                        ;        2 1=enable Y mirroring
-                                        ;        1 1=rotate 90 clockwise
-                                        ;        0 msb of X
-                                        ; this is attr byte 2 of port $0057
+        LD A, H                                 ; get sprite X msb
+        AND 1                                   ; only need bit 0 of X msb
+        NEXTREG $37, A                          ; bits 7-4 palette offset
+                                                ;        3 1=enable X mirroring
+                                                ;        2 1=enable Y mirroring
+                                                ;        1 1=rotate 90 clockwise
+                                                ;        0 msb of X
+                                                ; this is attr byte 2 of port $0057
         
         LD HL, (chipY)
-        LD A, L                         ; get sprite Y lsb
-        NEXTREG $36, A                  ; set attr byte 1 of port $0057
+        LD A, L                                 ; get sprite Y lsb
+        NEXTREG $36, A                          ; set attr byte 1 of port $0057
 
-        LD A, (chipPattern)          ; get pattern index to use
+        LD A, (chipPattern)                     ; get pattern index to use
         LD B, A
-        OR %11000000                    ;
-;        OR %10000000                   ;
+        OR %11000000                            ;
+;        OR %10000000                           ;
 
-        NEXTREG $38, A                  ; bits 7 1=make sprite visible
-                                        ;      6 1=enable optional attr byte 4
-                                        ;      5-0 pattern 0-63, 7th bit in byte 4
+        NEXTREG $38, A                          ; bits 7 1=make sprite visible
+                                                ;      6 1=enable optional attr byte 4
+                                                ;      5-0 pattern 0-63, 7th bit in byte 4
 
-        LD A, %00100000                 ; bits 7-6 00 = anchor sprite 8 bit (01=rel)
-                                        ; bit    5 1=unified, 0=composite
-                                        ; bits 4-3 X axis scale
-                                        ; bits 2-1 Y axis scale
-                                        ; bit    0 msb of Y coord
-        NEXTREG $39, A                  ;
+        LD A, %00100000                         ; bits 7-6 00 = anchor sprite 8 bit (01=rel)
+                                                ; bit    5 1=unified, 0=composite
+                                                ; bits 4-3 X axis scale
+                                                ; bits 2-1 Y axis scale
+                                                ; bit    0 msb of Y coord
+        NEXTREG $39, A                          ;
 
-
-        inc c
-        LD A, c                         ; set first RELATIVE sprite
-        NEXTREG $34, A                  ; set sprite to activate
-
-        LD A, 16                        ; X offset from ANCHOR sprite is 16
-        NEXTREG $35, A                  ; set attr byte 0 of port $0057
-
-        LD A, 0                         ; Y offset from ANCHOR sprite is 0
-        NEXTREG $36, A                  ; set attr byte 1 of port $0057
-
-        LD A, 1                         ; use ANCHOR palette offset
-        NEXTREG $37, A                  ; set attr byte 2 of port $0057
-
-        INC B
-        LD A, %11000000                 ; set visible and enable byte 4, patt offset 1
-        OR B
-        NEXTREG $38, A                  ; set attr byte 3 of port $0057
-
-        LD A, %01000000                 ; set as RELATIVE and use relative pattern
-        NEXTREG $79, A                  ; set attr byte 4 of port $0057
 
         inc c
-        LD A, c                         ; set second RELATIVE sprite
-        NEXTREG $34, A                  ; set sprite to activate
+        LD A, c                                 ; set first RELATIVE sprite
+        NEXTREG $34, A                          ; set sprite to activate
 
-        LD A, 0                         ; X offset from ANCHOR sprite is 0
-        NEXTREG $35, A                  ; set attr byte 0 of port $0057
+        LD A, 16                                ; X offset from ANCHOR sprite is 16
+        NEXTREG $35, A                          ; set attr byte 0 of port $0057
 
-        LD A, 16                        ; Y offset from ANCHOR sprite is 16
-        NEXTREG $36, A                  ; set attr byte 1 of port $0057
+        LD A, 0                                 ; Y offset from ANCHOR sprite is 0
+        NEXTREG $36, A                          ; set attr byte 1 of port $0057
 
-        LD A, 1                         ; use ANCHOR palette offset
-        NEXTREG $37, A                  ; set attr byte 2 of port $0057
+        LD A, 1                                 ; use ANCHOR palette offset
+        NEXTREG $37, A                          ; set attr byte 2 of port $0057
 
         INC B
-        LD A, %11000000                 ; set visible and enable byte 4, patt offset 1
+        LD A, %11000000                         ; set visible and enable byte 4, patt offset 1
         OR B
-        NEXTREG $38, A                  ; set attr byte 3 of port $0057
+        NEXTREG $38, A                          ; set attr byte 3 of port $0057
 
-        LD A, %01000000                 ; set as RELATIVE and use relative pattern
-        NEXTREG $79, A                  ; set attr byte 4 of port $0057
+        LD A, %01000000                         ; set as RELATIVE and use relative pattern
+        NEXTREG $79, A                          ; set attr byte 4 of port $0057
 
         inc c
-        LD A, c                         ; set second RELATIVE sprite
-        NEXTREG $34, A                  ; set sprite to activate
+        LD A, c                                 ; set second RELATIVE sprite
+        NEXTREG $34, A                          ; set sprite to activate
 
-        LD A, 16                         ; X offset from ANCHOR sprite is 0
-        NEXTREG $35, A                  ; set attr byte 0 of port $0057
+        LD A, 0                                 ; X offset from ANCHOR sprite is 0
+        NEXTREG $35, A                          ; set attr byte 0 of port $0057
 
-        LD A, 16                        ; Y offset from ANCHOR sprite is 16
-        NEXTREG $36, A                  ; set attr byte 1 of port $0057
+        LD A, 16                                ; Y offset from ANCHOR sprite is 16
+        NEXTREG $36, A                          ; set attr byte 1 of port $0057
 
-        LD A, 1                         ; use ANCHOR palette offset
-        NEXTREG $37, A                  ; set attr byte 2 of port $0057
+        LD A, 1                                 ; use ANCHOR palette offset
+        NEXTREG $37, A                          ; set attr byte 2 of port $0057
 
         INC B
-        LD A, %11000000                 ; set visible and enable byte 4, patt offset 1
+        LD A, %11000000                         ; set visible and enable byte 4, patt offset 1
         OR B
-        NEXTREG $38, A                  ; set attr byte 3 of port $0057
+        NEXTREG $38, A                          ; set attr byte 3 of port $0057
 
-        LD A, %01000000                 ; set as RELATIVE and use relative pattern
-        NEXTREG $79, A                  ; set attr byte 4 of port $0057
+        LD A, %01000000                         ; set as RELATIVE and use relative pattern
+        NEXTREG $79, A                          ; set attr byte 4 of port $0057
+
+        inc c
+        LD A, c                                 ; set second RELATIVE sprite
+        NEXTREG $34, A                          ; set sprite to activate
+
+        LD A, 16                                ; X offset from ANCHOR sprite is 0
+        NEXTREG $35, A                          ; set attr byte 0 of port $0057
+
+        LD A, 16                                ; Y offset from ANCHOR sprite is 16
+        NEXTREG $36, A                          ; set attr byte 1 of port $0057
+
+        LD A, 1                                 ; use ANCHOR palette offset
+        NEXTREG $37, A                          ; set attr byte 2 of port $0057
+
+        INC B
+        LD A, %11000000                         ; set visible and enable byte 4, patt offset 1
+        OR B
+        NEXTREG $38, A                          ; set attr byte 3 of port $0057
+
+        LD A, %01000000                         ; set as RELATIVE and use relative pattern
+        NEXTREG $79, A                          ; set attr byte 4 of port $0057
 
         pop bc
         RET
