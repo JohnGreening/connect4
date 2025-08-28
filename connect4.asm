@@ -138,7 +138,8 @@ winDetected:
         halt 
         halt
         playSoundEffect soundTada3
-
+        displayText txtWinner1
+        displayText txtWinner2
 wd1:
         ld bc, $7ffe
         in a, (c)

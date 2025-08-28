@@ -228,4 +228,6 @@ DB "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
 DB 255
 
 txtTitle        db 0, 4, "C O N N E C T  4", 255
-txtInstruction1 db 1, 4, "O: LEFT   P: RIGHT   space: DROP", 255
+txtInstruction1 db 1, 4, "O: Left   P: Right   space: Drop!", 255
+txtWinner1      db 3, 4, "we have a winner !!!", 255
+txtWinner2      db 4, 4, "press N for a new game", 255
