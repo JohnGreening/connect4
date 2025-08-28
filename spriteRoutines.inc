@@ -33,8 +33,12 @@ INCLUDE "lookupTables.inc"
 
 
 initialiseBoard:
-; input   : none
-; initialise columns, board, lineScore, lineCount 
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   initialise board state, i.e. columns, board, lineScore, lineCount = 0
+; Input   :   none
+; Output  :   none
+; Updates :   columns, board, lineScore, lineCount 
+;---------------------------------------------------------------------------------------------------------------
         ld a, 0
         ld hl, columns
         ld b,  7 +42 +69 +69
@@ -46,8 +50,12 @@ ib1:
 
 
 getYPixel:
-; A= row value, where 0 = positioning chip before dropping
-; return in A the Y pixel coord of the sprite
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   return sprite Y pixel position for a given row value (1-6, 0 when choosing column)
+; Input   :   A = row value
+; Output  :   A = Y pixel value
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
         push de
         ld de, spritePixelY
         add de, a
@@ -56,8 +64,12 @@ getYPixel:
         ret
 
 getXPixel:
-; A= column value, 1 - 7
-; return in A the X pixel coord of the sprite
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   return sprite X pixel position for a given col value (1-7)
+; Input   :   A = col value
+; Output  :   A = X pixel value
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
         push de
         ld de, spritePixelX
         add de, a
@@ -67,6 +79,12 @@ getXPixel:
         ret
 
 newGo:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   set initial sprite data for the start of a new move, flip sprite pattern, displays the sprite 
+; Input   :   none
+; Output  :   none
+; Updates :   spriteIndex, rowSelected, columnSelected, chipPattern
+;---------------------------------------------------------------------------------------------------------------
         ld a, 0
         ld (spriteIndex), a
 
@@ -150,8 +168,12 @@ winCheck:
 
 
 winnerDisplay:
-; 4 in a line has been detected !
-; input C = first win line where 4 in a line detected
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   highlight where a win has been detected
+; Input   :   C = winLine index
+; Output  :   none
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
         call killSprites
         call spritesOnTop
 
@@ -205,9 +227,12 @@ div7Done:
         ret
 
 drawTilechip:
-;----------------------------------------------------------------------------
-; replace the sprite with tile equivalent
-;----------------------------------------------------------------------------
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   when done with sprite, we replace it with the equivalent tiles
+; Input   :   none
+; Output  :   none
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
 
 ; first calculate tile position
 ; row part is ((row *4) + 4) * 40
@@ -269,6 +294,12 @@ replaceSprite:
 
 
 movechipLR:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   position sprite when selecting column
+; Input   :   none
+; Output  :   none
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
         LD A, (columnSelected)                  ; get column selected (1 - 7)
         call getXPixel
         ld h, 0
@@ -278,6 +309,12 @@ movechipLR:
         ret
 
 movechipDown:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   column selected, drop the chip into appropriate column
+; Input   :   none
+; Output  :   none
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
         ld a, (rowSelected)                     ; get the row we drop to (1-6)
         call getYPixel                          ; return in A the y pixel drop position
         ld e, a                                 ; save it for compare
@@ -295,6 +332,12 @@ movechipDown:
         ret
 
 displaychip:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   display a connect 4 counter on screen
+; Input   :   none
+; Output  :   none
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
         push bc
         LD A, (spriteIndex)                     ; set the sprite index
         ld c, a                                 ; store in c
@@ -401,10 +444,12 @@ displaychip:
         RET
 
 initCellWinLines:
-; given the winLine table (what cells are included in each of the 69 win lines)
-; we now construct a similar table holding what those win lines are for a given cell (0..41)
-; a cell will have between 3 and 13 win lines associated with it.
-
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   create cellWinLines table, i.e. 42 rows of between 3 to 13 winLines values
+; Input   :   none
+; Output  :   none
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
 	call initCellWinLineRows                ; initialise 42 line/mask pair values with 255
 	ld iy, cellWinLines                     ; point to this table
 	ld b, 0                                 ; B is the cell board index (BI) to search for

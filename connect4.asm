@@ -59,8 +59,8 @@ CheckExit:
 keyRight:
         call keyPause                           ; delay processing
         playSoundEffect soundKey
-        LD A, (columnSelected)
 
+        LD A, (columnSelected)
         INC A
         CP maxColumn + 1
         JR NZ, scc1
@@ -104,10 +104,10 @@ keyEnter:
         playSoundEffect soundDrop
         call movechipDown
 
-; determine board aray element
+; determine board aray element 0..41
         ld a, (chipPattern)                     ; get chipPattern, 0 or 4
         inc a                                   ; board value is 1 or 5
-        ld (lastGo), a
+        ld (lastGo), a                          ; save it
 
         ld a, (rowSelected)                     ; get row
         dec a                                   ; make 0 based
@@ -115,7 +115,7 @@ keyEnter:
         ld e, 7                                 ; multiply by 7
         mul d, e                                ; do it
         ld a, (columnSelected)                  ; get the column 
-        dec a                                   ; make 0 based, a= 0 - 41
+        dec a                                   ; make 0 based
         add a, e                                ; a is now  0-41 !
 
         call setSlotValue
