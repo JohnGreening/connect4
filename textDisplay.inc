@@ -1,3 +1,30 @@
+debugs:
+        push bc
+        push de
+        push hl
+        push ix
+        push iy
+
+        ld iy, tileMapData
+        ld de, 35
+        ld b, 7
+.more
+        ld hl, (colScore)
+        call DispHL
+        add iy, de
+        inc hl
+        inc hl
+        djnz .more
+        call keyC
+
+        pop iy
+        pop ix
+        pop hl
+        pop de
+        pop bc
+        ret
+
+
 
 DispA
 ; pass IY with location to display A

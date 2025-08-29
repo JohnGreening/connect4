@@ -110,10 +110,6 @@ keyEnter:
         call movechipDown
 
 ; determine board aray element 0..41
-        ld a, (chipPattern)                     ; get chipPattern, 0 or 4
-        inc a                                   ; board value is 1 or 5
-        ld (lastGo), a                          ; save it
-
         ld a, (rowSelected)                     ; get row
         dec a                                   ; make 0 based
         ld d, a                                 ; put in D ready for multiplication
@@ -158,6 +154,7 @@ AIMove:
         call pickBestAIMove
         inc a
         ld (columnSelected), a
+        call rollbackBoardState
         jp keyEnter
 
 ; ----------------------------
