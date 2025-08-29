@@ -8,8 +8,9 @@ rowSelected     db 0                            ; holds row used    1 - 6 (0 whe
 lastCell        db 0                            ; board index 0 - 41 used
 whoseGo         db 0                            ; last board value used 1 or 5
 
+boardStateLen   equ 7+ 69 +69
 columns         defs 7, 0                       ; how many chips are in each column
-board           defs 42, 0                      ; board layout, currently unused !
+;board           defs 42, 0                      ; board layout, currently unused !
 lineScore       defs 69, 0                      ; for each win line, a score (each yellow +1, each red -1, +4/-4 = win)
 lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
 
@@ -41,7 +42,7 @@ initialiseBoard:
 ;---------------------------------------------------------------------------------------------------------------
         ld a, 0
         ld hl, columns
-        ld b,  7 +42 +69 +69
+        ld b,  boardStateLen
 ib1:
         ld (hl), a
         inc hl

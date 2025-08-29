@@ -149,13 +149,13 @@ wd1:
         jp newGame
 
 AIMove:
-        call copyBoardState
+        call copyOriginalBoardState
         call aiBasicMove
         call debugs
         call pickBestAIMove
         inc a
         ld (columnSelected), a
-        call rollbackBoardState
+        call restoreOriginalBoardState
         jp keyEnter
 
 ; ----------------------------

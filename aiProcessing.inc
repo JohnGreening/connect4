@@ -5,7 +5,7 @@ colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; ea
 storeBI     db 0                                ; last BI cell, used for undo processing
 
 copycolumns     defs 7, 0                       ; copy of the standard 4 for use in AI move
-copyboard       defs 42, 0
+;copyboard       defs 42, 0
 copylineScore   defs 69, 0                      
 copylineCount   defs 69, 0
 copyWhoseGo     db 0
@@ -19,10 +19,10 @@ initialScore  equ -32767
 ; Output  :   none
 ; Updates :   copycolumns, copyboard, copylineScore, copylineCount 
 ;---------------------------------------------------------------------------------------------------------------
-copyBoardState:
+copyOriginalBoardState:
         ld hl, columns
         ld de, copycolumns
-        ld bc, 7 +42 +69 +69
+        ld bc, boardStateLen
         ldir
 
         ld a, (whoseGo)
@@ -42,21 +42,14 @@ copyBoardState:
         djnz .loop    
         ret
 
-rollbackBoardState:
+restoreOriginalBoardState:
         ld hl, copycolumns
         ld de, columns
-        ld bc, 7 +42 +69 +69
+        ld bc, boardStateLen
         ldir
 
         ld a, (copyWhoseGo)
         ld (whoseGo), a
-        ret
-
-rollbackCountsOnly:
-        ld hl, copyboard
-        ld de, board
-        ld bc, 42 +69 +69
-        ldir
         ret
 
 updateColScore:
@@ -225,7 +218,13 @@ evaluateWinBlock:
         ld (moveNowInd), a
 
 .checkRedWin
-        call rollbackCountsOnly
+        ; we've already placed a yellow to see if it's an immediate yellow win and hence we should block
+        ; don't restore board fully, we're going to simulate a red in the same spot so keep columns as it is
+        ld hl, copylineScore
+        ld de, lineScore
+        ld bc, 69 +69
+        ldir
+        
         ld a, redGo                             ; simulate a red chip, i.e. red win check
         ld (whoseGo), a
 
@@ -247,6 +246,6 @@ evaluateWinBlock:
         ;           - will need a specific undo to -1 the columnScore and columnCount
         ; quite involved !
         
-        call rollbackBoardState
+        call restoreOriginalBoardState
         pop bc
         ret
