@@ -9,7 +9,9 @@ copyboard       defs 42, 0
 copylineScore   defs 69, 0                      
 copylineCount   defs 69, 0
 copyWhoseGo     db 0
+moveNowInd      db 0
 
+initialScore  equ -32767
 
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   backup board state before AI move, i.e. columns, board, lineScore, lineCount
@@ -26,10 +28,13 @@ copyBoardState:
         ld a, (whoseGo)
         ld (copyWhoseGo), a
 
+        ld a, 0
+        ld (moveNowInd), a
+        
         ; initialise all column scores 0..6
         ld iy, colScore
         ld b, 7
-        ld de, -32767
+        ld de, initialScore
 .loop   ld (iy +0), e
         ld (iy +1), d
         inc iy
@@ -216,6 +221,8 @@ evaluateWinBlock:
 .blockImmediateWin
         ld de, 10000
         call updateColScore
+        ld a, 1
+        ld (moveNowInd), a
 
 .checkRedWin
         call rollbackCountsOnly
@@ -229,8 +236,17 @@ evaluateWinBlock:
 
         ld de, 30000
         call updateColScore
-
+        ld a, 1
+        ld (moveNowInd), a
 .end
+        ; if moveNowInd <> 0 then 
+        ;     check each column 0-6 again to see if this move gifts a win to yellow
+        ;     i.e. - simulate yellow chip in columns 0..6
+        ;          - does yellow win
+        ;           - if so, add -20000 to score for THIS column not the one simulated
+        ;           - will need a specific undo to -1 the columnScore and columnCount
+        ; quite involved !
+        
         call rollbackBoardState
         pop bc
         ret
