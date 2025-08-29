@@ -151,6 +151,7 @@ wd1:
 AIMove:
         call copyBoardState
         call aiBasicMove
+        call debugs
         call pickBestAIMove
         inc a
         ld (columnSelected), a
@@ -193,9 +194,13 @@ im2Routine
         PUSH BC
         PUSH DE
         PUSH HL
+        PUSH IX
+        PUSH IY
 
 INCLUDE "im2Routine.inc"
 
+        POP IY
+        POP IX
         POP HL
         POP DE
         POP BC

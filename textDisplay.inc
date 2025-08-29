@@ -1,19 +1,22 @@
 debugs:
+        push af
         push bc
         push de
         push hl
         push ix
         push iy
 
-        ld iy, tileMapData
-        ld de, 35
+        ld iy, tileMapData +314
+        ld de, 34
         ld b, 7
+        ld ix, colScore
 .more
-        ld hl, (colScore)
+        ld l, (ix +0)
+        ld h, (ix +1)
         call DispHL
         add iy, de
-        inc hl
-        inc hl
+        inc ix
+        inc ix
         djnz .more
         call keyC
 
@@ -22,6 +25,7 @@ debugs:
         pop hl
         pop de
         pop bc
+        pop af
         ret
 
 
@@ -88,6 +92,27 @@ DispHL
         RET
 
 DispHL1
+             bit 7, h
+             jr z, .positive
+
+.negative
+        ld a, 86
+        ld (iy), a
+        inc iy
+
+        xor a
+        sbc a, a   ; a becomes $FFFF (all bits set)
+        sub l      ; subtract the L byte from a
+        ld l, a    ; store result back in L
+        sbc a, a   ; a becomes $FFFF
+        sub h      ; subtract the H byte from a
+        ld h, a    ; store result back in H        
+        jr .doDisp
+.positive
+        ld a, 85
+        ld (iy), a
+        inc iy
+.doDisp
              LD BC, -10000
              CALL num1
              LD BC, -1000
@@ -247,7 +272,7 @@ DB "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"
 DB "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
 DB "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"
 DB "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-DB ".", ",", "'", "!", ":", "?"
+DB "+", "-", "'", "!", ":", "?"
 
 charEnd
 DB "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"

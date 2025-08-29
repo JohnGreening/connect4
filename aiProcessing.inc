@@ -1,7 +1,7 @@
 
 
 colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
-colScore    defw 0, 0, 0, 0, 0, 0, 0            ; each column has a 2 byte score
+colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
 storeBI     db 0                                ; last BI cell, used for undo processing
 
 copycolumns     defs 7, 0                       ; copy of the standard 4 for use in AI move
@@ -27,15 +27,14 @@ copyBoardState:
         ld (copyWhoseGo), a
 
         ; initialise all column scores 0..6
-        ld hl, colScore
+        ld iy, colScore
         ld b, 7
-        ld de, -32768
-.loop   ld (hl), e
-        inc hl
-        ld (hl), d
-        inc hl
+        ld de, -32767
+.loop   ld (iy +0), e
+        ld (iy +1), d
+        inc iy
+        inc iy
         djnz .loop    
-        call debugs    
         ret
 
 rollbackBoardState:
@@ -194,12 +193,11 @@ evaluateWinBlock:
         push bc                                 ; save column being evalyated and loop count
 
         ; routine is called with HL pointing to columns(c) and a with count of chips in that column
-        ld a, yellowGo                          ; simulate a yellow chip, i.e. block win check
-        ld (whoseGo), a
-
         inc a                                   ; add a chip
         ld (hl), a                              ; place in column
         ld b, a                                 ; column chip count
+        ld a, yellowGo                          ; simulate a yellow chip, i.e. block win check
+        ld (whoseGo), a
 
         ; calculate row/column and hence BI (0..41)
         ld a, 6
@@ -210,6 +208,7 @@ evaluateWinBlock:
         ld a, e
         add c                                   ; a = bi (0..41)
         ld (storeBI), a                         ; store it because we will simulate a red chip i.e. win check next
+
         call setSlotValue
         cp 4
         jr nz, .checkRedWin
