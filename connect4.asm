@@ -120,6 +120,8 @@ keyEnter:
         add a, e                                ; a is now  0-41 !
 
         call setSlotValue
+        ; expected return is A= 4 for a win
+        ;                    C= line (0..68) where win detected
         cp 4
         jr z, winDetected
         call newGo

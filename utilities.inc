@@ -134,12 +134,30 @@ randomX
 
 keyC
         push bc
+        push af
         LD BC, $fefe                        ; port for key
+.loop
         IN A, (C)                           ; read port
+        bit 3, a
+        jr nz, .loop
+
+        pop af
         pop bc
-        BIT 3, A                            ; test for key
-        RET Z                               ; return if pressed
-        JR keyC                             ; otherwise loop
+        ret
+keyV
+        push bc
+        push af
+        LD BC, $fefe                        ; port for key
+.loop
+        IN A, (C)                           ; read port
+        bit 4, a
+        jr nz, .loop
+.loop1
+        in a, (c)
+        jr z, .loop1
+        pop af
+        pop bc
+        ret
 
 LFSRSeed DB $12, $34, $56, $78, $9a, $bc, $de, $f0
 rseed    DB 1

@@ -10,7 +10,6 @@ whoseGo         db 0                            ; last board value used 1 or 5
 
 boardStateLen   equ 7+ 69 +69
 columns         defs 7, 0                       ; how many chips are in each column
-;board           defs 42, 0                      ; board layout, currently unused !
 lineScore       defs 69, 0                      ; for each win line, a score (each yellow +1, each red -1, +4/-4 = win)
 lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
 
@@ -127,20 +126,26 @@ setSlotValue:
 ; Input   :   A = board index BI (0..41)
 ; Output  :   A = 4 if win is detected, otherwise 255
 ;             C = first win line detected if any
-; Updates :   lineScore
-;             lineCount
+; Updates :   lineScore()
+;             lineCount()
+; Preserved   HL
 ;----------------------------------------------------------------------------------------------------------------
+        push hl
         ld ix, cellWinLines                     ; point to base of cellWinLines (what winLines apply to this BI)
         ld d, a                                 ; prepare to multiply for index offset
         ld e, 14                                ; each line is 14 bytes for each BI
         mul d, e                                ; do the multiplication
         add ix, de                              ; and hence point IX to the winLines for this BI
-        ld de, lineScore                        ; point to base of lineScore table
+        ld de, lineScore                        ; point to base of lineScore() table
 nextWinLine:
         ld a, (ix)                              ; get one of the win lines this chip is in
         cp 255                                  ; are we at the end of the list
-        ret z                                   ; exit if so
+        jr nz, .continue                        ; branch if not
 
+        pop hl
+        ret
+
+.continue
         ld c, a                                 ; we need to keep hold of the winline                
         ld l, a
         ld h, 0                                 ; DE is the lineCount base, so we construct HL to add to it
@@ -151,21 +156,29 @@ nextWinLine:
         jr z, .yellowGo                         ; branch for yellow if so
         jr    .redGo                            ; branch for red
 .redGo:
-        dec (hl)                                ; for Red we deduct 1 from the lineScore
+        dec (hl)                                ; for Red we deduct 1 from the lineScore(winline)
         ld a, (hl)                              ; return the value
         neg                                     ; a win for red is -4 (252), convert to +ve for win check
         ld b, a                                 ; save it 
         jr winCheck                             ; and check for a win
 .yellowGo:
-        inc (hl)                                ; for yellow we add 1 to the lineScore
+        inc (hl)                                ; for yellow we add 1 to the lineScore(winline)
         ld a, (hl)                              ; return the value
         ld b, a                                 ; save it
-winCheck:
-        add hl, 69                              ; first update the lineFill table (it follows lineScore, i.e. +69 bytes)
-        inc (hl)                                ; this is just a running count of counters in the line
+
+winCheck:        
+        add hl, 69                              ; point to lineCount() table this is offset from lineScore() by 69
+        inc (hl)                                ; add 1, this is just a running count of counters in the line
         ld a, b                                 ; get the saved lineScore
         cp 4                                    ; has anyone won?
-        ret z                                   ; return if so
+        jr nz, .readyNextLine                   ; return if so
+
+        pop hl
+        ret
+
+.readyNextLine:
+;        ld de, 69
+;        sbc hl, de
         inc ix                                  ; point to next winline        
         jr nextWinLine                          ; otherwise check next winline
 

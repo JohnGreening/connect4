@@ -4,10 +4,17 @@ colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weight
 colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
 storeBI     db 0                                ; last BI cell, used for undo processing
 
-copycolumns     defs 7, 0                       ; copy of the standard 4 for use in AI move
-;copyboard       defs 42, 0
+; originl board state before AI processing
+copycolumns     defs 7, 0
 copylineScore   defs 69, 0                      
 copylineCount   defs 69, 0
+
+; AI processing when simulating multiple moves
+undoColumns     defs 7, 0
+undoLineScore   defs 69, 0
+undoLineCount   defs 69, 0
+
+
 copyWhoseGo     db 0
 moveNowInd      db 0
 
@@ -52,18 +59,44 @@ restoreOriginalBoardState:
         ld (whoseGo), a
         ret
 
+createUndoBoardState:
+        push hl
+        push de
+        push bc
+        ld hl, columns
+        ld de, undoColumns
+        ld bc, boardStateLen
+        ldir
+        pop bc
+        pop de
+        pop hl
+        ret
+
+restoreUndoBoardState:
+        push hl
+        push de
+        push bc
+        ld hl, undoColumns
+        ld de, columns
+        ld bc, boardStateLen
+        ldir
+        pop bc
+        pop de
+        pop hl
+        ret
+
+
 updateColScore:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   helper function to do (IY) = (IY) + DE
-; Input   :   IY points to colScore for column being evaluated
-;             DE score to add/subtract
-; Output  :   none
-; Updates :   colScore
+; Purpose   :   helper function to do (IY) = (IY) + DE
+; Input     :   IY - points to colScore for column being evaluated
+;               DE - score to add/subtract
+; Output    :   none
+; Updates   :   colScore()
+; Preserves :   BC, DE, HL, IX, IY
 ;---------------------------------------------------------------------------------------------------------------
-; IY -> word (low at (IY), high at (IY+1))
-; DE = signed 16-bit delta
-; Preserves: BC, DE
-; Clobbers:  AF, HL moves to (HL+1) at exit
+        push hl
+
         push iy
         pop hl
         ld   a,(hl)        ; low
@@ -73,6 +106,8 @@ updateColScore:
         ld   a,(hl)        ; high
         adc  a,d           ; high += D + carry
         ld   (hl),a
+        
+        pop hl
         ret
 
 
@@ -160,24 +195,39 @@ aiBasicMove:
         ld a, (hl)                              ; get count of chips in this column
 
         cp 6                                    ; is it full
-        jr z, .noMove                           ; branch if so
+        jr z, .nextCol                          ; branch if so
 
         call evaluateWinBlock
         call evaluateColumnWeights
-        inc c                                   ; advance to next column
-        inc iy                                  ; advance score pointer
-        inc iy                                  ; .. its 2 bytes
-        djnz .loop                              ; loop for all 7 columns
-        ret
-.noMove:
+.nextCol:
         inc c                                   ; advance to next column
         inc iy                                  ; advance score pointer
         inc iy                                  ; .. its 2 bytes
         djnz .loop                              ; loop for all 7 columns
         ret
 
+
+
+evaluateWinBlock:
+; this routine will be called for each valid column
+; we :
+;      simulate yellow in the column
+;          - save current board state
+;          - evaluate for immediate yellow win  +10000, i.e. block
+;          - update score
+;          - reverse yellow move
+;      simulate a red in the column
+;          - save current board state
+;          - evaluate for immediate red win +30000, i.e. win !
+;          - update score
+;          - reverse red move
+
+        call simulateYellow
+        call simulateRed
+        ret
 
 evaluateColumnWeights:
+        push bc
         ld hl, colWeights                       ; point to weights array
         ld a, c                                 ; restore column
         add hl, a                               ; add in offset
@@ -185,67 +235,86 @@ evaluateColumnWeights:
         ld d, 0
         ld e, (hl)                              ; get weight
         call updateColScore                     ; (IY) = (IY) +/- DE
+        pop bc
         ret
 
-evaluateWinBlock:
-        push bc                                 ; save column being evalyated and loop count
 
-        ; routine is called with HL pointing to columns(c) and a with count of chips in that column
-        inc a                                   ; add a chip
+simulateYellow:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   place a yellow chip and evaluate
+; Input   :   C - column being evaluated
+;             HL - columns(c)
+; Output  :   A  - =4 if win, otherwise 255
+;             DE - score adjustment to apply
+; Updates :   
+;---------------------------------------------------------------------------------------------------------------
+        push bc
+        push hl
+        call createUndoBoardState               ; save current columns(), lineScore(), lineCount() into undoColumns ...
+
+        ld a, (hl)                              ; get chips in column(c)
+        inc a                                   ; increase chip count for the column
         ld (hl), a                              ; place in column
-        ld b, a                                 ; column chip count
-        ld a, yellowGo                          ; simulate a yellow chip, i.e. block win check
-        ld (whoseGo), a
+        ld b, a                                 ; save column chip count
+        ld a, yellowGo                          ; simulate a yellow chip
+        ld (whoseGo), a                         ; save it for setSlotValue routine
+
+        calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
+        call setSlotValue                       ; place on board and evaluate
+        cp 4                                    ; win detected?
+        jr z, .Win                              ; branch if so
+
+.noWin
+        call restoreUndoBoardState
+        pop hl
+        pop bc
+        ret
+
+.Win:
+        LD DE, 10000
+        call updateColScore
+        call debugs
+        call restoreUndoBoardState
+        pop hl
+        pop bc
+        ret
+
+simulateRed:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   place a red chip and evaluate
+; Input   :   C - column being evaluated
+;             HL - columns(c)
+; Output  :   A  - =4 if win, otherwise 255
+;             DE - score adjustment to apply
+; Updates :   
+;---------------------------------------------------------------------------------------------------------------
+        push hl
+        push bc
+        call createUndoBoardState               ; save current columns(), lineScore(), lineCount() into undoColumns ...
+
+        ld a, (hl)                              ; get chips in column(c)
+        inc a                                   ; increase chip count for the column
+        ld (hl), a                              ; place in column
+        ld b, a                                 ; save column chip count
+        ld a, redGo                             ; simulate a yellow chip
+        ld (whoseGo), a                         ; save it for setSlotValue routine
 
         ; calculate row/column and hence BI (0..41)
-        ld a, 6
-        sub b
-        ld d, a
-        ld e, 7
-        mul d, e
-        ld a, e
-        add c                                   ; a = bi (0..41)
-        ld (storeBI), a                         ; store it because we will simulate a red chip i.e. win check next
+        calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
+        call setSlotValue                       ; place on board and evaluate
+        cp 4                                    ; win detected?
+        jr z, .Win                              ; branch if so
 
-        call setSlotValue
-        cp 4
-        jr nz, .checkRedWin
-
-.blockImmediateWin
-        ld de, 10000
-        call updateColScore
-        ld a, 1
-        ld (moveNowInd), a
-
-.checkRedWin
-        ; we've already placed a yellow to see if it's an immediate yellow win and hence we should block
-        ; don't restore board fully, we're going to simulate a red in the same spot so keep columns as it is
-        ld hl, copylineScore
-        ld de, lineScore
-        ld bc, 69 +69
-        ldir
-        
-        ld a, redGo                             ; simulate a red chip, i.e. red win check
-        ld (whoseGo), a
-
-        ld a, (storeBI)
-        call setSlotValue
-        cp 4
-        jr nz, .end
-
-        ld de, 30000
-        call updateColScore
-        ld a, 1
-        ld (moveNowInd), a
-.end
-        ; if moveNowInd <> 0 then 
-        ;     check each column 0-6 again to see if this move gifts a win to yellow
-        ;     i.e. - simulate yellow chip in columns 0..6
-        ;          - does yellow win
-        ;           - if so, add -20000 to score for THIS column not the one simulated
-        ;           - will need a specific undo to -1 the columnScore and columnCount
-        ; quite involved !
-        
-        call restoreOriginalBoardState
+.noWin
+        call restoreUndoBoardState
         pop bc
+        pop hl
+        ret
+
+.Win:
+        LD DE, 30000
+        call updateColScore
+        call restoreUndoBoardState
+        pop bc
+        pop hl
         ret
