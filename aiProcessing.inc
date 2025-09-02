@@ -1,18 +1,21 @@
 
 
+redLUT      defw 0, 0,  0,    0,     0
+            defw 0, 6,  0,    0,     0
+            defw 0, 0, 70,    0,     0
+            defw 0, 0,  0, 1400,     0
+            defw 0, 0,  0,    0, 30000
+
 colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
 colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
+ycolScore   defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
 storeBI     db 0                                ; last BI cell, used for undo processing
 
-; originl board state before AI processing
-copycolumns     defs 7, 0
-copylineScore   defs 69, 0                      
-copylineCount   defs 69, 0
-
-; AI processing when simulating multiple moves
-undoColumns     defs 7, 0
-undoLineScore   defs 69, 0
-undoLineCount   defs 69, 0
+; originl board state and working snapshots for AI processing
+; copies of columns(), lineScore(), lineCount()
+originalSnapshot defs boardStateLen, 0
+snapA            defs boardStateLen, 0
+snapB            defs boardStateLen, 0
 
 
 copyWhoseGo     db 0
@@ -28,7 +31,7 @@ initialScore  equ -32767
 ;---------------------------------------------------------------------------------------------------------------
 copyOriginalBoardState:
         ld hl, columns
-        ld de, copycolumns
+        ld de, originalSnapshot
         ld bc, boardStateLen
         ldir
 
@@ -50,7 +53,7 @@ copyOriginalBoardState:
         ret
 
 restoreOriginalBoardState:
-        ld hl, copycolumns
+        ld hl, originalSnapshot
         ld de, columns
         ld bc, boardStateLen
         ldir
@@ -59,12 +62,24 @@ restoreOriginalBoardState:
         ld (whoseGo), a
         ret
 
-createUndoBoardState:
+createSnapA:
         push hl
         push de
         push bc
         ld hl, columns
-        ld de, undoColumns
+        ld de, snapA
+        ld bc, boardStateLen
+        ldir
+        pop bc
+        pop de
+        pop hl
+        ret
+createSnapB:
+        push hl
+        push de
+        push bc
+        ld hl, columns
+        ld de, snapB
         ld bc, boardStateLen
         ldir
         pop bc
@@ -72,11 +87,24 @@ createUndoBoardState:
         pop hl
         ret
 
-restoreUndoBoardState:
+restoreFromSnapA:
         push hl
         push de
         push bc
-        ld hl, undoColumns
+        ld hl, snapA
+        ld de, columns
+        ld bc, boardStateLen
+        ldir
+        pop bc
+        pop de
+        pop hl
+        ret
+
+restoreFromSnapB:
+        push hl
+        push de
+        push bc
+        ld hl, snapB
         ld de, columns
         ld bc, boardStateLen
         ldir
@@ -184,7 +212,7 @@ pickBestAIMove:
         ret
 
 
-aiBasicMove:
+aiMove:
         ld c, 0                                 ; column being tested
         ld b, 7                                 ; loop for 7 columns
         ld iy, colScore                         ; point to column score table
@@ -238,6 +266,27 @@ evaluateColumnWeights:
         pop bc
         ret
 
+subsequentYellow:
+; here we are simulating yellow in each of the columns 0..6 AFTER placing red chip
+; we score each board position into yellowColsScore
+; then we pick the biggest value (it'll still be negative) but we assume yellow will pick the best for it, not us
+; this is then used as a delta for colScore()
+        ld c, 0                                 ; column being tested
+        ld b, 7                                 ; loop for 7 columns
+.loop:
+        ld a, c                                 ; get column
+        ld hl, columns                          ; point to columns array
+        add hl, a                               ; add in offset
+        ld a, (hl)                              ; get count of chips in this column
+
+        cp 6                                    ; is it full
+        jr z, .nextCol                          ; branch if so
+
+        call simulateYellow
+.nextCol:
+        inc c                                   ; advance to next column
+        djnz .loop                              ; loop for all 7 columns
+        ret
 
 simulateYellow:
 ;---------------------------------------------------------------------------------------------------------------
@@ -250,7 +299,7 @@ simulateYellow:
 ;---------------------------------------------------------------------------------------------------------------
         push bc
         push hl
-        call createUndoBoardState               ; save current columns(), lineScore(), lineCount() into undoColumns ...
+        call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         ld a, (hl)                              ; get chips in column(c)
         inc a                                   ; increase chip count for the column
@@ -265,16 +314,18 @@ simulateYellow:
         jr z, .Win                              ; branch if so
 
 .noWin
-        call restoreUndoBoardState
+        ; code here will evaluate yellows move
+        ; but we won't actuall use it on the first "block immediate yellow win" call
         pop hl
         pop bc
+        call restoreFromSnapA
         ret
 
 .Win:
         LD DE, 10000
         call updateColScore
-        call debugs
-        call restoreUndoBoardState
+        ;call debugs
+        call restoreFromSnapA
         pop hl
         pop bc
         ret
@@ -290,7 +341,7 @@ simulateRed:
 ;---------------------------------------------------------------------------------------------------------------
         push hl
         push bc
-        call createUndoBoardState               ; save current columns(), lineScore(), lineCount() into undoColumns ...
+        call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         ld a, (hl)                              ; get chips in column(c)
         inc a                                   ; increase chip count for the column
@@ -302,19 +353,7 @@ simulateRed:
         ; calculate row/column and hence BI (0..41)
         calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
-        cp 4                                    ; win detected?
-        jr z, .Win                              ; branch if so
-
-.noWin
-        call restoreUndoBoardState
-        pop bc
-        pop hl
-        ret
-
-.Win:
-        LD DE, 30000
-        call updateColScore
-        call restoreUndoBoardState
+        call restoreFromSnapA
         pop bc
         pop hl
         ret

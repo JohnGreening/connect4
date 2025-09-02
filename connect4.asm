@@ -152,8 +152,8 @@ wd1:
 
 AIMove:
         call copyOriginalBoardState
-        call aiBasicMove
-        call debugs
+        call aiMove
+        ;call debugs
         call pickBestAIMove
         inc a
         ld (columnSelected), a
