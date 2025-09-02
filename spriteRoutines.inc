@@ -173,7 +173,8 @@ winCheck:
 winCheck1:
         ld a, b                                 ; get the saved lineScore
         cp 4                                    ; has anyone won?
-        ret z
+        ld a, c                                 ; set winline if preparedness
+        ret z                                   ; return with A=winline 
         inc ix                                  ; point to next winline        
         jr nextWinLine                          ; otherwise check next winline
 
@@ -218,7 +219,7 @@ redScore:
 winnerDisplay:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   highlight where a win has been detected
-; Input   :   C = winLine index
+; Input   :   A = winLine index
 ; Output  :   none
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
@@ -226,7 +227,7 @@ winnerDisplay:
         call spritesOnTop
 
         ld ix, winLines                         ; point to base of winLines array
-        ld d, c                                 ; get our win line detected
+        ld d, a                                 ; get our win line detected
         ld e, 4                                 ; each row is 4 bytes
         mul d, e                                ; multiply out to get the index offset
         add ix, de                              ; add to base

@@ -250,7 +250,7 @@ evaluateWinBlock:
 ;          - update score
 ;          - reverse red move
 
-        call simulateYellow
+        call simulateInitialYellow
         call simulateRed
         ret
 
@@ -288,12 +288,12 @@ subsequentYellow:
         djnz .loop                              ; loop for all 7 columns
         ret
 
-simulateYellow:
+simulateInitialYellow:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   place a yellow chip and evaluate
 ; Input   :   C - column being evaluated
 ;             HL - columns(c)
-; Output  :   A  - =4 if win, otherwise 255
+; Output  :   A  - =winLine if win, otherwise 255
 ;             DE - score adjustment to apply
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
@@ -310,12 +310,10 @@ simulateYellow:
 
         calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
-        cp 4                                    ; win detected?
-        jr z, .Win                              ; branch if so
+        cp 255                                  ; win detected?
+        jr nz, .Win                             ; branch if so
 
 .noWin
-        ; code here will evaluate yellows move
-        ; but we won't actuall use it on the first "block immediate yellow win" call
         pop hl
         pop bc
         call restoreFromSnapA
@@ -324,19 +322,55 @@ simulateYellow:
 .Win:
         LD DE, 10000
         call updateColScore
-        ;call debugs
         call restoreFromSnapA
         pop hl
         pop bc
         ret
+
+simulateYellow:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   place a yellow chip and evaluate
+; Input   :   C - column being evaluated
+;             HL - columns(c)
+; Output  :   A  - = winLine if win, otherwise 255
+;             DE - score adjustment to apply
+; Updates :   
+;---------------------------------------------------------------------------------------------------------------
+        push bc
+        push hl
+        call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
+
+        ld a, (hl)                              ; get chips in column(c)
+        inc a                                   ; increase chip count for the column
+        ld (hl), a                              ; place in column
+        ld b, a                                 ; save column chip count
+        ld a, yellowGo                          ; simulate a yellow chip
+        ld (whoseGo), a                         ; save it for setSlotValue routine
+
+        calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
+        call setSlotValue                       ; place on board and evaluate
+;.noWin
+        ; code here will evaluate yellows move
+        ; but we won't actuall use it on the first "block immediate yellow win" call
+        pop hl
+        pop bc
+        call restoreFromSnapA
+        ret
+
+;.Win:
+;        LD DE, 10000
+;        call updateColScore
+;        ;call debugs
+;        call restoreFromSnapA
+;        pop hl
+;        pop bc
+;        ret
 
 simulateRed:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   place a red chip and evaluate
 ; Input   :   C - column being evaluated
 ;             HL - columns(c)
-; Output  :   A  - =4 if win, otherwise 255
-;             DE - score adjustment to apply
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
         push hl

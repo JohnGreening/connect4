@@ -120,10 +120,10 @@ keyEnter:
         add a, e                                ; a is now  0-41 !
 
         call setSlotValue
-        ; expected return is A= 4 for a win
+        ; expected return is A= winLine for a win, otherwise 255
         ;                    C= line (0..68) where win detected
-        cp 4
-        jr z, winDetected
+        cp 255
+        jr nz, winDetected
         call newGo
         jp MainLoop
 
