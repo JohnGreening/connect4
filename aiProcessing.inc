@@ -6,10 +6,15 @@ redLUT      defw 0, 0,  0,    0,     0
             defw 0, 0,  0, 1400,     0
             defw 0, 0,  0,    0, 30000
 
+yellowLUT   defw 0, 0,  0,    0,     0
+            defw 0, 5,  0,    0,     0
+            defw 0, 0, 50,    0,     0
+            defw 0, 0,  0, 2000,     0
+            defw 0, 0,  0,    0, 10000
+
 colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
 colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
 ycolScore   defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
-storeBI     db 0                                ; last BI cell, used for undo processing
 
 ; originl board state and working snapshots for AI processing
 ; copies of columns(), lineScore(), lineCount()
@@ -140,9 +145,11 @@ updateColScore:
 
 
 pickBestAIMove:
-; Input:  colScore = 7 signed 16-bit words (little-endian)
+; Input:  IY pointing to colScore = 7 signed 16-bit words (little-endian)
 ; Output: A = index (0..6) of the maximum signed value in colScore
-        ld   hl, colScore
+        push iy
+        pop hl
+;        ld   hl, colScore
 
         ; seed best = entry0 (signed -> adjusted: high^$80)
         ld   c,(hl)               ; best.low
@@ -309,19 +316,17 @@ simulateInitialYellow:
         ld (whoseGo), a                         ; save it for setSlotValue routine
 
         calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
+;        push iy
+;        ld iy, ycolScore
         call setSlotValue                       ; place on board and evaluate
+;        pop iy
         cp 255                                  ; win detected?
         jr nz, .Win                             ; branch if so
-
-.noWin
-        pop hl
-        pop bc
-        call restoreFromSnapA
-        ret
-
+        jr .end                                 ; skip score update
 .Win:
-        LD DE, 10000
-        call updateColScore
+        LD DE, 10000                            ; yellow immediate threat, so give high score
+        call updateColScore                     ; update score
+.end
         call restoreFromSnapA
         pop hl
         pop bc

@@ -161,16 +161,14 @@ nextWinLine:
         ld a, (hl)                              ; return the value
         call redScore                           ; evaluate position
         ld b, a                                 ; save it 
-        jr winCheck1                            ; and check for a win
+        jr winCheck                             ; and check for a win
 .yellowGo:
         inc (hl)                                ; for yellow we add 1 to the lineScore(winline)
         ld a, (hl)                              ; return the value
+        call yellowScore
         ld b, a                                 ; save it
 
 winCheck:        
-        add hl, 69                              ; point to lineCount() table this is offset from lineScore() by 69
-        inc (hl)                                ; add 1, this is just a running count of counters in the line
-winCheck1:
         ld a, b                                 ; get the saved lineScore
         cp 4                                    ; has anyone won?
         ld a, c                                 ; set winline if preparedness
@@ -213,6 +211,40 @@ redScore:
 .doneRedScore:
         neg
         ret
+yellowScore:
+        ; A = lineScore()
+        add hl, 69                              ; point to lineCount(winLine)
+        inc (hl)                                ; +1 to lineCount(winLine)
+
+        bit 7, a                                ; is our lines score one of +1, +2, +3, +4 ?
+        jr nz, .doneYellowScore                 ; branch if not, no scoring to do since 0
+
+        push de                                 ; save our base lineScore() pointer
+
+        ld b, a                                 ; save lineScore(winLine)
+
+        ld a, (hl)                              ; get the lineCount(winLine)
+        ld d, a                                 ; put in D ready for multiply
+        ld e, 5                                 ; put 5 in E ready for multiply
+        mul d, e                                ; = lineCount(winLine) * 5
+
+        ld a, e                                 ; 0 .. 24, so only need E
+        add b                                   ; add in the lineScore(winLine)
+        add a, a                                ; each LUT entry is 2 bytes
+
+        ld de, yellowLUT                        ; point to LUT
+        add de, a                               ; and add offset
+        ex de, hl                               ; udateColScore wants delta in DE
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+        call updateColScore
+        ld a, b
+        pop de
+        ret
+.doneYellowScore:
+        ret
+
 
 
 

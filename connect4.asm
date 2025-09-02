@@ -154,6 +154,7 @@ AIMove:
         call copyOriginalBoardState
         call aiMove
         ;call debugs
+        ld iy, colScore
         call pickBestAIMove
         inc a
         ld (columnSelected), a
