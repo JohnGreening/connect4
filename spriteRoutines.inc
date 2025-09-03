@@ -125,8 +125,7 @@ setSlotValue:
 ;             - return if a win for either player has been detected
 ;             - value the board iro that player
 ; Input   :   A = board index BI (0..41)
-; Output  :   A = 4 if win is detected, otherwise 255
-;             C = first win line detected if any
+; Output  :   A = win line if win detected, otherwise 255
 ; Updates :   lineScore()
 ;             lineCount()
 ; Preserved   HL
@@ -276,24 +275,27 @@ winnerDisplay:
 ; Output  :   none
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
-        ld d, a                                 ; keep hold of win line detected
         call killSprites
         call spritesOnTop
 
         ld ix, winLines                         ; point to base of winLines array
+        ld d, a                                 ; set D = winline where win detected
         ld e, 4                                 ; each row is 4 bytes
         mul d, e                                ; multiply out to get the index offset
         add ix, de                              ; add to base
+
         ld b, 4                                 ; there are 4 entries to process
 nextWinChip:
         ld a, (spriteIndex)                     ; get the current sprite #
         add 4                                   ; each big chip is 4 sprites
         ld (spriteIndex), a                     ; save it back
+
         ld a, (ix)                              ; get cell (0..41) in the winLine
         call displayWinChip                     ; draw our big chip
         inc ix                                  ; advance to next cell in the winline
         djnz nextWinChip                        ; repeat if more to do
         ret                                     ; done !
+
 displayWinChip:
         call calcRowCol                         ; given A=0..41 return D (row 1-6) and E (col 1-7)
         ld a, d                                 ; get row
@@ -308,6 +310,7 @@ displayWinChip:
         ld (chipX), hl
         call displaychip                        ; show the chip
         ret
+
 calcRowCol:
 ; A = 0 .. 41
 ; return D = row (1-6)
@@ -338,32 +341,35 @@ drawTilechip:
 
 ; first calculate tile position
 ; row part is ((row *4) + 4) * 40
-        ld a, (rowSelected)
-        ld d, a
-        ld e, 4
-        mul d, e
-        add de, 4
-        ld d, 40
-        mul d, e
+        ld a, (rowSelected)                     ; get row final
+        ld d, a                                 ; save in D
+        ld e, 4                                 ; we multiply by 4
+        mul d, e                                ; calc (row * 4)
+        add de, 4                               ; calc ((row * 4) + 4)
+        ld d, 40                                ; ready multiply by 40
+        mul d, e                                ; calc R = ((row * 4) + 4) * 40
+
 ; column part is (column * 4) + 1
-        ld a, (columnSelected)
-        add a, a
-        add a, a
-        inc a
-        add de, a
+        ld a, (columnSelected)                  ; get column
+        add a, a                                ; calc (column * 2)
+        add a, a                                ; calc (column * 4)
+        inc a                                   ; calc C = (column * 4) + 1
+        add de, a                               ; complete offset is R + C
+
 ; we now have the offset into the tilemap, so add in tilemap        
-        add de, tileMapData
+        add de, tileMapData                     ; add to tilemap base
 
         ld b, yellowTile                        ; assume yellow chip
         ld a, (chipPattern)
         cp yellowChip
-        jr z, replaceSprite
+        jr z, .replaceSprite
         ld b, redTile                           ; ok, its a red chip
 
-replaceSprite:
-        ld a, b
-        ex de, hl
+.replaceSprite:
+        ld a, b                                 ; get tile pattern to use
+        ex de, hl                               ; we favour HL rather than DE for some reason
 
+; tile line 1
         ld (hl), a
         inc hl
         inc a
@@ -374,6 +380,7 @@ replaceSprite:
         add hl, 38
         inc a
 
+; tile line 2
         ld (hl), a
         inc hl
         inc a
@@ -384,6 +391,7 @@ replaceSprite:
         add hl, 38
         inc a
 
+; tile line 3
         ld (hl), a
         inc hl
         inc a
@@ -397,7 +405,7 @@ replaceSprite:
 
 movechipLR:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   position sprite when selecting column
+; Purpose :   set sprite horizontal position when selecting column
 ; Input   :   none
 ; Output  :   none
 ; Updates :   none
@@ -425,8 +433,8 @@ movechipDown:
         inc hl                                  ; add 1 pixel
         ld a, l                                 ; prepare for compare
         cp e                                    ; compare with final drop position
-        jr z, .mcdExit                          ; branch if we've got these
-        ld (chipY), hl                          ; otherwise save 
+        jr z, .mcdExit                          ; branch if final position reached
+        ld (chipY), hl                          ; otherwise save new Y position
         call displaychip                        ; display the chip in new position
         jr .mcd                                 ; and loop
 .mcdExit:

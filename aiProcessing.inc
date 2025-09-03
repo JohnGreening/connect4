@@ -128,95 +128,91 @@ updateColScore:
 ; Updates   :   colScore()
 ; Preserves :   BC, DE, HL, IX, IY
 ;---------------------------------------------------------------------------------------------------------------
-        push hl
+        ld   a, (iy +0)                         ; get current low byte
+        add  a, e                               ; low += E
+        ld   (iy +0), a                         ; store back
+        ld   a, (iy +1)                         ; get current high byte
+        adc  a, d                               ; high += D + carry
+        ld   (iy +1), a                         ; store back
 
-        push iy
-        pop hl
-        ld   a,(hl)        ; low
-        add  a,e           ; low += E
-        ld   (hl),a
-        inc  hl
-        ld   a,(hl)        ; high
-        adc  a,d           ; high += D + carry
-        ld   (hl),a
-        
-        pop hl
         ret
 
 
 pickBestAIMove:
-; Input:  IY pointing to colScore = 7 signed 16-bit words (little-endian)
-; Output: A = index (0..6) of the maximum signed value in colScore
-        push iy
-        pop hl
-;        ld   hl, colScore
+        push bc
+        push de
+        push hl
 
-        ; seed best = entry0 (signed -> adjusted: high^$80)
-        ld   c,(hl)               ; best.low
+;--------------------------------------------------------------------------------------------------
+; Input : IY -> array of 7 signed 16-bit words (little-endian)
+; Output: A  = index (0..6) of the maximum (signed) value
+; Clobbers: A, B, C, D, E, H, L
+; Tie-break: earlier index (lowest) wins
+;--------------------------------------------------------------------------------------------------
+
+        ; Seed "best" with entry 0 at IY
+        ld   c, (iy +0)                         ; best.low
+        ld   a, (iy +1)                         ; best.high
+        xor  080h                               ; signed -> unsigned adjust
+        ld   b, a                               ; bestAdj.high
+        ld   e, 0                               ; bestIdx = 0
+        ld   d, 1                               ; curIdx  = 1
+
+        ; HL = IY + 2  (points to entry1.low)
+        push iy
+        pop  hl
         inc  hl
-        ld   a,(hl)               ; best.high
-        xor  080h
-        ld   b,a                  ; bestAdj.high
-        ld   e,0                  ; bestIdx = 0
-        ld   d,1                  ; curIdx  = 1
-        inc  hl                   ; HL -> entry1.low
+        inc  hl
 
 .loop:
-        ; HL -> candidate.low
-        ; load candidate.high (adjusted) into A and compare to bestAdj.high (B)
-        ld   a,(hl)               ; (throwaway read of low for timing locality)
-        inc  hl
-        ld   a,(hl)               ; cand.high
-        xor  080h                 ; adjust sign bit
-        cp   b
-        jr   c, .skip             ; cand < best -> skip
-        jr   z, .tie
-
-        ; cand.high > best.high  -> update best to candidate
-.update:
-        ld   b,a                  ; new bestAdj.high
-        dec  hl
-        ld   a,(hl)               ; cand.low
-        inc  hl
-        ld   c,a                  ; new best.low
-        ld   a,d
-        ld   e,a                  ; bestIdx = curIdx
-        jr   .next
-
-.tie:
-        ; highs equal -> compare lows: cand.low vs best.low
-        dec  hl
-        ld   a,(hl)               ; cand.low
-        cp   c
-        inc  hl
-        jr   c, .skip             ; cand.low < best.low -> keep
-        jr   z, .skip             ; equal -> keep leftmost
-        ; cand.low > best.low -> update
-        ld   c,a                  ; new best.low
-        ld   a,(hl)               ; re-read cand.high
-        xor  080h
-        ld   b,a                  ; new bestAdj.high
-        ld   a,d
-        ld   e,a                  ; bestIdx = curIdx
-
-.next:
-        inc  hl                   ; advance to next entry.low
-        inc  d                    ; curIdx++
-        ld   a,d
+        ld   a, d
         cp   7
-        jr   nz, .loop
+        jr   z, .done                           ; processed all 7 entries
 
-        ld   a,e                  ; return best index 0..6
-        ret
+        ld   a, (hl)                            ; cand.low
+        inc  hl                                 ; -> cand.high
+        ld   a, (hl)                            ; cand.high
+        xor  080h
+        cp   b
+        jr   c, .skip                           ; cand.high < bestAdj.high
+        jr   nz, .take                          ; cand.high > bestAdj.high
+
+        ; equal highs -> compare lows
+        dec  hl                                 ; -> cand.low
+        ld   a, (hl)
+        cp   c
+        inc  hl                                 ; restore -> cand.high
+        jr   c, .skip
+
+.take:  ; update best = candidate
+        ld   a, (hl)                            ; cand.high
+        xor  080h
+        ld   b, a                               ; bestAdj.high
+        dec  hl                                 ; -> cand.low
+        ld   a, (hl)
+        ld   c, a                               ; best.low
+        inc  hl                                 ; restore -> cand.high
+        ld   e, d                               ; bestIdx = curIdx
 
 .skip:
-        inc  hl                   ; advance to next entry.low
-        inc  d
-        ld   a,d
-        cp   7
-        jr   nz, .loop
-        ld   a,e
+        inc  d                                  ; next index
+        inc  hl                                 ; advance HL to next.low
+        jr   .loop
+
+.done:
+        ; return highest value found
+;        ld   e, c
+;        ld   a, b
+;        xor  080h
+;        ld   d, a              ; DE = max (signed)
+
+        ld   a, e                               ; return index
+
+        pop bc
+        pop de
+        pop hl
         ret
+
 
 
 aiMove:
@@ -251,12 +247,13 @@ evaluateInitialYellow:
 ;---------------------------------------------------------------------------------------------------------------
         push bc
         push hl
-        ld a, c
-        add a, a
-        ld iy, colScore
-        ld d, 0
-        ld e, a
-        add iy, de
+
+        ld a, c                                 ; get column being tested
+        add a, a                                ; double since colScore values are 16 bit words
+        ld iy, colScore                         ; point to base of colScore()
+        ld d, 0                                 ; default D
+        ld e, a                                 ; E = column * 2
+        add iy, de                              ; hence IY points to colScore(column)
         
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 

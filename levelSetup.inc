@@ -67,6 +67,7 @@ endProg:
         RET
 
 killSprites:
+        push af
         LD A, 0                                 ; start at sprite 0
         LD B, 127                               ; loop for all 127 sprites
 .KS1
@@ -79,6 +80,7 @@ killSprites:
 
         INC A
         DJNZ .KS1
+        pop af
         RET
 
 

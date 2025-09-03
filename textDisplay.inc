@@ -126,7 +126,6 @@ DispA2Digit
 DispA1Digit                                 ; use this for 1 digit
              LD BC, -1
 num1
-;            114 is the tilemap for 0
              LD A, digitTileStart -1
 num2
              INC A
@@ -267,17 +266,16 @@ textTileStart EQU 33
 digitTileStart equ charEnd + textTileStart - charSet
 lastTile  EQU 127
 
-charSet
-DB "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"
-DB "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
-DB "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"
-DB "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-DB "+", "-", "'", "!", ":", "?"
+charSet:
+        DB "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"
+        DB "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
+        DB "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"
+        DB "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
+        DB "+", "-", "'", "!", ":", "?"
 
-charEnd
-DB "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
-
-DB 255
+charEnd:
+        DB "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+        DB 255
 
 txtTitle        db 0, 4, "C O N N E C T  4", 255
 txtInstruction1 db 1, 4, "O: Left   P: Right   space: Drop!", 255
