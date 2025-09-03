@@ -144,11 +144,11 @@ winDetected:
         displayText txtWinner1
         displayText txtWinner2
 wd1:
-        ld bc, $7ffe
-        in a, (c)
-        and %00001000
-        jr nz, wd1
-        jp newGame
+        ld bc, $7ffe                            ; keyboard port for "N" key
+        in a, (c)                               ; read the port
+        and %00001000                           ; isolate "N"
+        jr nz, wd1                              ; loop if key is not pressed
+        jp newGame                              ; jump if pressed
 
 AIMove:
         call copyOriginalBoardState

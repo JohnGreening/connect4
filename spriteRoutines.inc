@@ -119,12 +119,11 @@ ng1:
         jr z, ng1
         ret
 
-lineRedScore        defb 0
-lineYellowScore     defb 0
-lineChipCount       defb 0
 setSlotValue:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   Determine if a win has occured after updating columns
+; Purpose :   Determine board state (after columns() has been updated)
+;             - return if a win for either player has been detected
+;             - value the board iro that player
 ; Input   :   A = board index BI (0..41)
 ; Output  :   A = 4 if win is detected, otherwise 255
 ;             C = first win line detected if any
@@ -132,121 +131,143 @@ setSlotValue:
 ;             lineCount()
 ; Preserved   HL
 ;----------------------------------------------------------------------------------------------------------------
-        ld d, a                                 ; save A for offset calculation
-        xor a
-        ld (lineRedScore), a
-        ld (lineYellowScore), a
-        ld (lineChipCount), a
-        
-        ld ix, cellWinLines                     ; point to base of cellWinLines (what winLines apply to this BI)
+        ; return the list of win lines that contain this chip (passed as BI 0..41)      
+        ld ix, cellWinLines                     ; point to base of cellWinLines
+        ld d, a                                 ; 
         ld e, 14                                ; each line is 14 bytes for each BI
         mul d, e                                ; do the multiplication
         add ix, de                              ; and hence point IX to the winLines for this BI
+.nextWinLine:
         ld de, lineScore                        ; point to base of lineScore() table
-nextWinLine:
         ld a, (ix)                              ; get one of the win lines this chip is in
         cp 255                                  ; are we at the end of the list
         ret z
-        ld c, a                                 ; we need to keep hold of the winline                
         ld l, a
         ld h, 0                                 ; DE is the lineCount base, so we construct HL to add to it
         add hl, de                              ; HL points to lineScore(winline)
 
-        ld a, (whoseGo)                          ; who moved last
+        ld a, (whoseGo)                         ; who moved last
         cp yellowGo                             ; was it yellow?
         jr z, .yellowGo                         ; branch for yellow if so
         jr    .redGo                            ; branch for red
-.redGo:
-        dec (hl)                                ; for Red we deduct 1 from the lineScore(winline)
-        ld a, (hl)                              ; return the value
-        call redScore                           ; evaluate position
-        ld b, a                                 ; save it 
-        jr winCheck                             ; and check for a win
-.yellowGo:
-        inc (hl)                                ; for yellow we add 1 to the lineScore(winline)
-        ld a, (hl)                              ; return the value
-        call yellowScore
-        ld b, a                                 ; save it
 
-winCheck:        
+.redGo:
+        call scoreRedPosition
+        jr .winCheck                            ; and check for a win
+.yellowGo:
+        call scoreYellowPosition
+
+.winCheck:        
         ld a, b                                 ; get the saved lineScore
         cp 4                                    ; has anyone won?
-        ld a, c                                 ; set winline if preparedness
+        ld a, (ix)                              ; set winline again in preparedness
         ret z                                   ; return with A=winline 
         inc ix                                  ; point to next winline        
-        jr nextWinLine                          ; otherwise check next winline
+        jr .nextWinLine                         ; otherwise check next winline
 
-redScore:
-        ; A = lineScore()
-        add hl, 69                              ; point to lineCount(winLine)
-        inc (hl)                                ; +1 to lineCount(winLine)
 
-        bit 7, a                                ; is our lines score one of -1, -2, -3, -4 ?
-        jr z, .doneRedScore                     ; branch if not, no scoring to do since 0
+scoreYellowPosition:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   Update lineScore() & lineCount() for this winline
+;             value the line according to yellow's LUT
+; Input   :   HL = lineScore(winline)
+; Output  :   A = updated lineScore(winline)
+; Updates :   lineScore()
+;             lineCount()
+; Preserved   DE
+;----------------------------------------------------------------------------------------------------------------
+        ; update lineScore(?) and lineCount(?)
+        inc (hl)                                ; update lineScore(?). +1 for yellow, -1 for red
+        ld a, (hl)                              ; get the new value
+        ld b, a                                 ; save lineScore(?) in B
+        add hl, 69                              ; point to lineCount(?)
+        inc (hl)                                ; add 1 to lineCount(?)
+        ld a, (hl)                              ; get the new value
+        ld c, a                                 ; save lineCount(?) in C
 
-        push de                                 ; save our base lineScore() pointer
-
-        neg                                     ; convert to A = lineScore(winLine) to +ve
-        ld b, a                                 ; save lineScore(winLine)
-
-        ld a, (hl)                              ; get the lineCount(winLine)
-        ld d, a                                 ; put in D ready for multiply
-        ld e, 5                                 ; put 5 in E ready for multiply
-        mul d, e                                ; = lineCount(winLine) * 5
-
-        ld a, e                                 ; 0 .. 24, so only need E
-        add b                                   ; add in the lineScore(winLine)
-        add a, a                                ; each LUT entry is 2 bytes
-
-        ld de, redLUT                           ; point to LUT
-        add de, a                               ; and add offset
-        ex de, hl                               ; udateColScore wants delta in DE
-        ld e, (hl)
-        inc hl
-        ld d, (hl)
-        call updateColScore
+        ; we only score for lineScores(?) of 0, 1, 2, 3 & 4 (red moves can make it negative)
         ld a, b
-        pop de
+        bit 7, a
+        jr nz, .end
+
+        ; calculate offset to lookup table
+        ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
+        ld hl, yellowLUT                        ; point to base of table
+        call readLUT
+        call updateColScore                     ; apply delta to overall column score
+
+.end:
+        ld a, b                                 ; return with lineScore (+4 indicates a win)
         ret
-.doneRedScore:
+
+scoreRedPosition:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   Update lineScore() & lineCount() for this winline
+;             value the line according to Red's LUT
+; Input   :   HL = lineScore(winline)
+; Output  :   A = updated lineScore(winline)
+; Updates :   lineScore()
+;             lineCount()
+; Preserved   DE
+;----------------------------------------------------------------------------------------------------------------
+        ; update lineScore(?) and lineCount(?)
+        dec (hl)                                ; update lineScore(?). +1 for yellow, -1 for red
+        ld a, (hl)                              ; get the new value
+        ld b, a                                 ; save lineScore(?) in B
+        add hl, 69                              ; point to lineCount(?)
+        inc (hl)                                ; add 1 to lineCount(?)
+        ld a, (hl)                              ; get the new value
+        ld c, a                                 ; save lineCount(?) in C
+
+        ; we only score for lineScores(?) of  -1, -2, -3 & -4 (red moves can make it negative)
+        ld a, b
+        bit 7, a
+        jr z, .end
+
+        ; make it positive
         neg
-        ret
-yellowScore:
-        ; A = lineScore()
-        add hl, 69                              ; point to lineCount(winLine)
-        inc (hl)                                ; +1 to lineCount(winLine)
+        ld b, a
 
-        bit 7, a                                ; is our lines score one of +1, +2, +3, +4 ?
-        jr nz, .doneYellowScore                 ; branch if not, no scoring to do since 0
+        ; calculate offset to lookup table
+        ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
+        ld hl, redLUT                           ; point to base of table
+        call readLUT
+        call updateColScore                     ; apply delta to overall column score
 
-        push de                                 ; save our base lineScore() pointer
-
-        ld b, a                                 ; save lineScore(winLine)
-
-        ld a, (hl)                              ; get the lineCount(winLine)
-        ld d, a                                 ; put in D ready for multiply
-        ld e, 5                                 ; put 5 in E ready for multiply
-        mul d, e                                ; = lineCount(winLine) * 5
-
-        ld a, e                                 ; 0 .. 24, so only need E
-        add b                                   ; add in the lineScore(winLine)
-        add a, a                                ; each LUT entry is 2 bytes
-
-        ld de, yellowLUT                        ; point to LUT
-        add de, a                               ; and add offset
-        ex de, hl                               ; udateColScore wants delta in DE
-        ld e, (hl)
-        inc hl
-        ld d, (hl)
-        call updateColScore
-        ld a, b
-        pop de
-        ret
-.doneYellowScore:
+.end:
+        ld a, b                                 ; return with lineScore (+4 indicates a win)
         ret
 
 
+readLUT:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   Read Look up table (LUT) so that given lineScore & lineCount a strengh value is determined
+;             red and yellow have different LUT values
+; Input   :   HL = base of LUT 
+;             B  = lineScore(winline)
+;             C  = lineCount(winline)
+; Output  :   DE = LUT delta to apply to lineScore(column)
+; Updates :   none
+;---------------------------------------------------------------------------------------------------------------
+        push bc
 
+        ; calculate offset to lookup table
+        ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
+        ld d, c                                 ; return the lineCount(winline) 0..4 chips
+        ld e, 5                                 ; ready to multiply by 5
+        mul d, e                                ; do it
+        ld  a, e                                ; get the result
+        add b                                   ; add in the lineScore(winline)
+        add a, a                                ; each LUT is 2 bytes, so double
+
+        add hl, a                               ; now point to value needed to score line
+
+        ld e, (hl)                              ; lookup score adjustment (low byte)
+        inc hl                                  ; point to high byte
+        ld d, (hl)                              ; look up score adjustment (high byte)
+
+        pop bc
+        ret
 
 winnerDisplay:
 ;---------------------------------------------------------------------------------------------------------------
@@ -255,11 +276,11 @@ winnerDisplay:
 ; Output  :   none
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
+        ld d, a                                 ; keep hold of win line detected
         call killSprites
         call spritesOnTop
 
         ld ix, winLines                         ; point to base of winLines array
-        ld d, a                                 ; get our win line detected
         ld e, 4                                 ; each row is 4 bytes
         mul d, e                                ; multiply out to get the index offset
         add ix, de                              ; add to base

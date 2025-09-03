@@ -222,7 +222,6 @@ pickBestAIMove:
 aiMove:
         ld c, 0                                 ; column being tested
         ld b, 7                                 ; loop for 7 columns
-        ld iy, colScore                         ; point to column score table
 .loop:
         ld a, c                                 ; get column
         ld hl, columns                          ; point to columns array
@@ -232,33 +231,76 @@ aiMove:
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
-        call evaluateWinBlock
+        ; for each of these, we need to keep hold of BC, HL
+        call evaluateInitialYellow
+        call evaluateRedYellow1Ply
         call evaluateColumnWeights
 .nextCol:
         inc c                                   ; advance to next column
-        inc iy                                  ; advance score pointer
-        inc iy                                  ; .. its 2 bytes
         djnz .loop                              ; loop for all 7 columns
         ret
 
 
+evaluateInitialYellow:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate yellow threat
+; Input   :   C  - column being evaluated
+;             HL - columns(c)
+; Output  :   A  - winLine if win, otherwise 255
+; Updates :   
+;---------------------------------------------------------------------------------------------------------------
+        push bc
+        push hl
+        ld a, c
+        add a, a
+        ld iy, colScore
+        ld d, 0
+        ld e, a
+        add iy, de
+        
+        call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
-evaluateWinBlock:
+        inc (hl)                                ; increase chip count for the column
+        ld a, (hl)                              ; read back the cip count now
+        ld b, a                                 ; save column chip count
+        ld a, yellowGo                          ; simulate a yellow chip
+        ld (whoseGo), a                         ; save it for setSlotValue routine
+
+        calculateBoardIndex                     ; calculate A=BI (needs B=column chip count, C=column)
+        call setSlotValue                       ; place on board and evaluate
+        cp 255                                  ; win detected?
+        jr nz, .Win                             ; branch if so
+        jr .end                                 ; skip score update
+.Win:
+        LD DE, 10000                            ; yellow immediate threat, so give high score
+        call updateColScore                     ; update score. ** Needs to be colScore(c)
+.end
+        call restoreFromSnapA
+        pop hl
+        pop bc
+        ret
+
+
+evaluateRedYellow1Ply:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   place a Red chip and evaluate
+; Input   :   C  - column being evaluated
+;             A  - chip count currently in that column
+;             HL - columns(c)
+; Output  :   A  - winLine if win, otherwise 255
+; Updates :   
+;---------------------------------------------------------------------------------------------------------------
+
 ; this routine will be called for each valid column
-; we :
-;      simulate yellow in the column
-;          - save current board state
-;          - evaluate for immediate yellow win  +10000, i.e. block
-;          - update score
-;          - reverse yellow move
-;      simulate a red in the column
-;          - save current board state
-;          - evaluate for immediate red win +30000, i.e. win !
-;          - update score
-;          - reverse red move
+        ld a, c
+        add a, a
+        ld iy, colScore
+        ld d, 0
+        ld e, a
+        add iy, de
 
-        call simulateInitialYellow
         call simulateRed
+
         ret
 
 evaluateColumnWeights:
@@ -295,42 +337,6 @@ subsequentYellow:
         djnz .loop                              ; loop for all 7 columns
         ret
 
-simulateInitialYellow:
-;---------------------------------------------------------------------------------------------------------------
-; Purpose :   place a yellow chip and evaluate
-; Input   :   C - column being evaluated
-;             HL - columns(c)
-; Output  :   A  - =winLine if win, otherwise 255
-;             DE - score adjustment to apply
-; Updates :   
-;---------------------------------------------------------------------------------------------------------------
-        push bc
-        push hl
-        call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
-
-        ld a, (hl)                              ; get chips in column(c)
-        inc a                                   ; increase chip count for the column
-        ld (hl), a                              ; place in column
-        ld b, a                                 ; save column chip count
-        ld a, yellowGo                          ; simulate a yellow chip
-        ld (whoseGo), a                         ; save it for setSlotValue routine
-
-        calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
-;        push iy
-;        ld iy, ycolScore
-        call setSlotValue                       ; place on board and evaluate
-;        pop iy
-        cp 255                                  ; win detected?
-        jr nz, .Win                             ; branch if so
-        jr .end                                 ; skip score update
-.Win:
-        LD DE, 10000                            ; yellow immediate threat, so give high score
-        call updateColScore                     ; update score
-.end
-        call restoreFromSnapA
-        pop hl
-        pop bc
-        ret
 
 simulateYellow:
 ;---------------------------------------------------------------------------------------------------------------
@@ -378,8 +384,9 @@ simulateRed:
 ;             HL - columns(c)
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
-        push hl
         push bc
+        push hl
+
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         ld a, (hl)                              ; get chips in column(c)
@@ -393,6 +400,7 @@ simulateRed:
         calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
         call restoreFromSnapA
-        pop bc
+
         pop hl
+        pop bc
         ret
