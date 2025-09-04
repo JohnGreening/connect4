@@ -18,7 +18,7 @@ debugs:
         inc ix
         inc ix
         djnz .more
-        call keyC
+        call keyV
 
         pop iy
         pop ix

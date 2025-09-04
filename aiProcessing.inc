@@ -24,7 +24,6 @@ snapB            defs boardStateLen, 0
 
 
 copyWhoseGo     db 0
-moveNowInd      db 0
 
 initialScore  equ -32767
 
@@ -42,9 +41,6 @@ copyOriginalBoardState:
 
         ld a, (whoseGo)
         ld (copyWhoseGo), a
-
-        ld a, 0
-        ld (moveNowInd), a
         
         ; initialise all column scores 0..6
         ld iy, colScore
@@ -79,6 +75,7 @@ createSnapA:
         pop de
         pop hl
         ret
+
 createSnapB:
         push hl
         push de
@@ -128,13 +125,17 @@ updateColScore:
 ; Updates   :   colScore()
 ; Preserves :   BC, DE, HL, IX, IY
 ;---------------------------------------------------------------------------------------------------------------
-        ld   a, (iy +0)                         ; get current low byte
-        add  a, e                               ; low += E
-        ld   (iy +0), a                         ; store back
-        ld   a, (iy +1)                         ; get current high byte
-        adc  a, d                               ; high += D + carry
-        ld   (iy +1), a                         ; store back
+        push hl
+        push af
 
+        ld   l, (iy +0)                         ; get current low byte
+        ld   h, (iy +1)                         ; get current high byte        
+        add  hl, de                             
+        ld   (iy +0), l                         ; store back low
+        ld   (iy +1), h                         ; store back high
+
+        pop af
+        pop hl
         ret
 
 
@@ -145,11 +146,11 @@ pickBestAIMove:
 
 ;--------------------------------------------------------------------------------------------------
 ; Input : IY -> array of 7 signed 16-bit words (little-endian)
+;         NB IY is passed so that we can pass in an alternative colScore for yellow min/max scores
 ; Output: A  = index (0..6) of the maximum (signed) value
 ; Clobbers: A, B, C, D, E, H, L
 ; Tie-break: earlier index (lowest) wins
 ;--------------------------------------------------------------------------------------------------
-
         ; Seed "best" with entry 0 at IY
         ld   c, (iy +0)                         ; best.low
         ld   a, (iy +1)                         ; best.high
@@ -215,7 +216,7 @@ pickBestAIMove:
 
 
 
-aiMove:
+DoAIMove:
         ld c, 0                                 ; column being tested
         ld b, 7                                 ; loop for 7 columns
 .loop:
@@ -228,12 +229,18 @@ aiMove:
         jr z, .nextCol                          ; branch if so
 
         ; for each of these, we need to keep hold of BC, HL
-        call evaluateInitialYellow
-        call evaluateRedYellow1Ply
-        call evaluateColumnWeights
+        call_preserve_HL_BC evaluateInitialYellow
+        call_preserve_HL_BC evaluateRedYellow1Ply
+        call_preserve_HL_BC evaluateColumnWeights
 .nextCol:
         inc c                                   ; advance to next column
         djnz .loop                              ; loop for all 7 columns
+
+        ld iy, colScore                         ; set to pick from best Red move
+        call pickBestAIMove                     ; pick the best index from the scores
+        inc a                                   ; A=0..6, so make 1..7
+        ld (columnSelected), a                  ; store it
+
         ret
 
 
@@ -245,16 +252,7 @@ evaluateInitialYellow:
 ; Output  :   A  - winLine if win, otherwise 255
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
-        push bc
-        push hl
-
-        ld a, c                                 ; get column being tested
-        add a, a                                ; double since colScore values are 16 bit words
-        ld iy, colScore                         ; point to base of colScore()
-        ld d, 0                                 ; default D
-        ld e, a                                 ; E = column * 2
-        add iy, de                              ; hence IY points to colScore(column)
-        
+        useRedColScore        
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         inc (hl)                                ; increase chip count for the column
@@ -273,8 +271,6 @@ evaluateInitialYellow:
         call updateColScore                     ; update score. ** Needs to be colScore(c)
 .end
         call restoreFromSnapA
-        pop hl
-        pop bc
         ret
 
 
@@ -289,19 +285,21 @@ evaluateRedYellow1Ply:
 ;---------------------------------------------------------------------------------------------------------------
 
 ; this routine will be called for each valid column
-        ld a, c
-        add a, a
-        ld iy, colScore
-        ld d, 0
-        ld e, a
-        add iy, de
-
+        useRedColScore
         call simulateRed
 
         ret
 
 evaluateColumnWeights:
-        push bc
+;---------------------------------------------------------------------------------------------------------------
+; Purpose :   If nothing else to go on, favour the centre columns
+; Input   :   C  - column being evaluated
+;             HL - columns(c)
+; Output  :   none
+; Updates :   colScore(IY)
+;---------------------------------------------------------------------------------------------------------------
+        useRedColScore
+
         ld hl, colWeights                       ; point to weights array
         ld a, c                                 ; restore column
         add hl, a                               ; add in offset
@@ -309,7 +307,7 @@ evaluateColumnWeights:
         ld d, 0
         ld e, (hl)                              ; get weight
         call updateColScore                     ; (IY) = (IY) +/- DE
-        pop bc
+
         ret
 
 subsequentYellow:

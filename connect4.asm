@@ -25,7 +25,7 @@ newGame:
         call killSprites                        ; remove any sprites that may be around
         call tileMapOnTop                       ; ensure tileMap priority in display
         CALL displayBoard                       ; show the Connect 4 board
-        call initialiseBoard                    ; initialise internal values
+        call initialiseBoard                    ; set columns(), lineScore(), lineCount() to 0
         displayText txtTitle
         displayText txtInstruction1
         call newGo
@@ -34,60 +34,60 @@ newGame:
 ; main game start
 ; ----------------------------
 MainLoop:
-        ld a, (chipPattern)
-        cp redChip
+        ld a, (whoseGo)
+        cp redGo
         jp z, AIMove
+        jr playerMove
 
-        LD BC, $dffe                            ; keyboard port for Y, U, I, O, P
-        IN A, (C)                               ; read port
-        AND %00000001                           ; bit 0 is "P"
-        JR Z, keyRight                          ; branch if pressed
-        IN A, (C)                               ; read port again
-        AND %00000010                           ; bit 1 is "O"
-        JR Z, keyLeft                           ; branch if pressed
+playerMove:
+        readKey $dffe, %00000001                ; check if "P" is pressed
+        call z, keyRight                        ; move chip if allowed
 
-        LD BC, $7ffe                            ; keyboard port for B, N, M, sym, space
-        IN A, (C)                               ; read port
-        AND %00000001                           ; bit 0 is "spacebar"
-        JR Z, keyEnter                          ; branch if pressed
+        readKey $dffe, %00000010                ; check if "O" is pressed
+        call z, keyLeft                         ; move chip if allowed
 
-; ----------------------------
-; Exit Handling (X key)
-; ----------------------------
-CheckExit:
-        LD BC, $fefe                            ; keyboard port for V, C, X, Z, shift
-        IN A, (C)                               ; read port
-        AND %00000100                           ; bit 2 is "X"
-        JR NZ, MainLoop                         ; X not pressed → continue game
-        jp EndProgram                           ; X pressed → end program
+        readKey $7ffe, %00000001                ; check if [space] pressed
+        jp z, keyEnter                          ; branch if pressed
+
+        readKey $fefe, %00000100                ; check if "X" pressed
+        JR NZ, playerMove                       ; branch if not
+
+        CALL endProg                            ; tidy up sprites and turn off sound
+        IM 1                                    ; restore im 1
+        NEXTREG $7, 0                           ; set speed to 3.5mhz
+        RET
+
 
 keyRight:
+;---------------------------------------------------------------------------------------------------------------
+; Purpose   :   move the chip one column to the right, if allowed
+;---------------------------------------------------------------------------------------------------------------
         call keyPause                           ; delay processing
-        playSoundEffect soundKey
 
-        LD A, (columnSelected)
-        INC A
-        CP maxColumn + 1
-        JR NZ, scc1
-        LD A, minColumn
-scc1:
-        LD (columnSelected), A
-        call movechipLR
-        jp MainLoop
+        LD A, (columnSelected)                  ; get current column
+        INC A                                   ; +1
+        CP maxColumn + 1                        ; is it too many?
+        ret z                                   ; return if so, no action
+
+        LD (columnSelected), A                  ; update the column store
+        call movechipLR                         ; move the chip
+        playSoundEffect soundKey                ; make a beep
+
+        ret
 
 keyLeft:
-        call keyPause
-        playSoundEffect soundKey
+        call keyPause                           ; delay processing
 
-        LD A, (columnSelected)
-        DEC A
-        CP minColumn - 1
-        JR NZ, scc2
-        LD A, maxColumn
-scc2:
-        LD (columnSelected), A
-        call movechipLR
-        jp MainLoop
+        LD A, (columnSelected)                  ; get current column
+        DEC A                                   ; -1
+        CP minColumn - 1                        ; is it too few
+        ret z                                   ; return is so, no action
+
+        LD (columnSelected), A                  ; update the column store
+        call movechipLR                         ; move the chip
+        playSoundEffect soundKey                ; make a beep
+
+        ret
 
 keyEnter:
         call keyPause
@@ -97,7 +97,8 @@ keyEnter:
         add hl, a                               ; point to actual column selected
         ld a, (hl)                              ; get how many chips in this column
         cp 6                                    ; are we full?
-        jr z, MainLoop                          ; branch back if so
+        jp z, playerMove                        ; return if move invalid
+
         inc a                                   ; add the new chip
         ld (hl), a                              ; and store in columns
 
@@ -143,32 +144,18 @@ winDetected:
         playSoundEffect soundTada3
         displayText txtWinner1
         displayText txtWinner2
-wd1:
-        ld bc, $7ffe                            ; keyboard port for "N" key
-        in a, (c)                               ; read the port
-        and %00001000                           ; isolate "N"
-        jr nz, wd1                              ; loop if key is not pressed
+.loop:
+        readKey $7ffe, %00001000                ; see if "N" is pressed
+        jr nz, .loop                            ; loop if not
         jp newGame                              ; jump if pressed
 
 AIMove:
-        call copyOriginalBoardState
-        call aiMove
-        ;call debugs
-        ld iy, colScore
-        call pickBestAIMove
-        inc a
-        ld (columnSelected), a
-        call restoreOriginalBoardState
-        jp keyEnter
+        call copyOriginalBoardState             ; back-up columns, lineScore, lineCount
+        call DoAIMove                             ; call the AI move routine
+        call restoreOriginalBoardState          ; restore original columns, lineScore, lineCount
 
-; ----------------------------
-; Program End
-; ----------------------------
-EndProgram:
-        CALL endProg
-        IM 1
-        NEXTREG $7, 0                   ; set speed to 3.5mhz
-        RET
+        jp keyEnter                             ; make the move
+
 
 setupIM2:
 ; sub routine to set-up IM2 to point to BB
@@ -216,7 +203,7 @@ INCLUDE "im2Routine.inc"
 length EQU $ - $6000
 SAVEBIN "connect4.bin", $6000, length
 
-SAVENEX OPEN "connect4.nex", MAINPROG, $FF40
+SAVENEX OPEN "connect4.nex", MAINPROG, $FE00
 ;SAVENEX CORE 2, 0, 0
 ;SAVENEX CFG 7, 0, 0, 0
 SAVENEX AUTO

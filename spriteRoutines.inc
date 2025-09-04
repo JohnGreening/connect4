@@ -8,10 +8,11 @@ rowSelected     db 0                            ; holds row used    1 - 6 (0 whe
 lastCell        db 0                            ; board index 0 - 41 used
 whoseGo         db 0                            ; last board value used 1 or 5
 
-boardStateLen   equ 7+ 69 +69
 columns         defs 7, 0                       ; how many chips are in each column
 lineScore       defs 69, 0                      ; for each win line, a score (each yellow +1, each red -1, +4/-4 = win)
 lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
+boardEnd        db 0
+boardStateLen   equ boardEnd - columns
 
 maxColumn       equ 7
 minColumn       equ 1
@@ -34,18 +35,18 @@ INCLUDE "lookupTables.inc"
 
 initialiseBoard:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   initialise board state, i.e. columns, board, lineScore, lineCount = 0
+; Purpose :   initialise board state, i.e. columns(), lineScore(), lineCount() = 0
 ; Input   :   none
 ; Output  :   none
-; Updates :   columns, board, lineScore, lineCount 
+; Updates :   columns(), lineScore(), lineCount() 
 ;---------------------------------------------------------------------------------------------------------------
         ld a, 0
         ld hl, columns
         ld b,  boardStateLen
-ib1:
+.loop:
         ld (hl), a
         inc hl
-        djnz ib1
+        djnz .loop
         ret
 
 
@@ -604,14 +605,14 @@ foundIndex:
 	jr l3                                   ; jump back, done with this winning line
 			
 	
-initCellWinLineRows
+initCellWinLineRows:
 	ld bc, 42*14
 	ld hl, cellWinLines
-l1:	ld a, 255
+.loop:	ld a, 255
 	ld (hl), a
 	inc hl
 	dec bc 
 	ld a, b
 	or c
-	jr nz, l1 
+	jr nz, .loop
 	ret
