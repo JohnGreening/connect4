@@ -20,12 +20,12 @@ MAINPROG
         CALL spriteSetup                        ; initialise graphics
         call convertChars                       ; convert some tiles to chars
         call initCellWinLines                   ; create cellWinLines table
-
 newGame:
         call killSprites                        ; remove any sprites that may be around
         call tileMapOnTop                       ; ensure tileMap priority in display
         CALL displayBoard                       ; show the Connect 4 board
         call initialiseBoard                    ; set columns(), lineScore(), lineCount() to 0
+        ld ix, columns
         displayText txtTitle
         displayText txtInstruction1
         call newGo
@@ -64,12 +64,12 @@ keyRight:
 ;---------------------------------------------------------------------------------------------------------------
         call keyPause                           ; delay processing
 
-        LD A, (columnSelected)                  ; get current column
-        INC A                                   ; +1
-        CP maxColumn + 1                        ; is it too many?
+        LD A, (ix +0)                           ; get current column
+        CP 6                                    ; is it too many?
         ret z                                   ; return if so, no action
 
-        LD (columnSelected), A                  ; update the column store
+        inc ix
+        inc ix
         call movechipLR                         ; move the chip
         playSoundEffect soundKey                ; make a beep
 
@@ -78,12 +78,12 @@ keyRight:
 keyLeft:
         call keyPause                           ; delay processing
 
-        LD A, (columnSelected)                  ; get current column
-        DEC A                                   ; -1
-        CP minColumn - 1                        ; is it too few
+        LD A, (ix)                              ; get current column
+        cp 0
         ret z                                   ; return is so, no action
 
-        LD (columnSelected), A                  ; update the column store
+        dec ix
+        dec ix
         call movechipLR                         ; move the chip
         playSoundEffect soundKey                ; make a beep
 
@@ -91,21 +91,19 @@ keyLeft:
 
 keyEnter:
         call keyPause
-        ld a, (columnSelected)                  ; get column selected
-        dec a                                   ; make 0 based index
-        ld hl, columns                          ; point HL to columns data
-        add hl, a                               ; point to actual column selected
-        ld a, (hl)                              ; get how many chips in this column
+        ld a, (ix +1)                           ; get chip count in column selected
         cp 6                                    ; are we full?
         jp z, playerMove                        ; return if move invalid
 
         inc a                                   ; add the new chip
-        ld (hl), a                              ; and store in columns
+        ld (ix +1), a                           ; and store in columns
 
         ld b, a                                 ; temp store of A
         ld a, 7                                 ; the row is 7 - chips in column                             
         sub b                                   ; get the row
-        ld (rowSelected), a                     ; store the row selected
+        ld (rowSelected), a                     ; store the row impacted (1-7, 0 is when choosing column)
+        ld a, (ix +0)                           ; get the column selected
+        ld (columnSelected), a                  ; and store that
 
         playSoundEffect soundDrop
         call movechipDown
@@ -117,7 +115,7 @@ keyEnter:
         ld e, 7                                 ; multiply by 7
         mul d, e                                ; do it
         ld a, (columnSelected)                  ; get the column 
-        dec a                                   ; make 0 based
+   ;     dec a                                   ; make 0 based
         add a, e                                ; a is now  0-41 !
 
         call setSlotValue
@@ -184,13 +182,9 @@ im2Routine
         PUSH BC
         PUSH DE
         PUSH HL
-        PUSH IX
-        PUSH IY
 
 INCLUDE "im2Routine.inc"
 
-        POP IY
-        POP IX
         POP HL
         POP DE
         POP BC

@@ -5,18 +5,22 @@ chipPattern     db 4
 
 columnSelected  db 1                            ; holds last column 1 - 7
 rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)
-lastCell        db 0                            ; board index 0 - 41 used
 whoseGo         db 0                            ; last board value used 1 or 5
 
-columns         defs 7, 0                       ; how many chips are in each column
+; the connect 4 board data
+columns         db   0, 0                       ; column index, chip count
+                db   1, 0
+                db   2, 0
+                db   3, 0
+                db   4, 0
+                db   5, 0
+                db   6, 0
+                db   255, 0                     ; this is the quit row
 lineScore       defs 69, 0                      ; for each win line, a score (each yellow +1, each red -1, +4/-4 = win)
 lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
 boardEnd        db 0
 boardStateLen   equ boardEnd - columns
 
-maxColumn       equ 7
-minColumn       equ 1
-maxRow          equ 6
 
 ; sprite patterns
 yellowChip      equ 0                           ; sprites 0 - 3
@@ -35,18 +39,32 @@ INCLUDE "lookupTables.inc"
 
 initialiseBoard:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   initialise board state, i.e. columns(), lineScore(), lineCount() = 0
+; Purpose :   initialise board state, i.e. columns(), lineScore(), lineCount()
 ; Input   :   none
 ; Output  :   none
 ; Updates :   columns(), lineScore(), lineCount() 
 ;---------------------------------------------------------------------------------------------------------------
+; first initialise the lineScore(), lineCount values
         ld a, 0
-        ld hl, columns
-        ld b,  boardStateLen
+        ld hl, lineScore
+        ld b,  boardEnd - lineScore
 .loop:
         ld (hl), a
         inc hl
         djnz .loop
+
+; now initialise columns()
+        ld b, 7
+        ld a, 0
+        ld c, 0
+        ld hl, columns
+.loop1:
+        ld (hl), a
+        inc hl
+        ld (hl), c
+        inc hl
+        inc a
+        djnz .loop1
         ret
 
 
@@ -74,7 +92,7 @@ getXPixel:
         push de
         ld de, spritePixelX
         add de, a
-        dec de
+;        dec de
         ld a, (de)
         pop de
         ret
@@ -84,24 +102,11 @@ newGo:
 ; Purpose :   set initial sprite data for the start of a new move, flip sprite pattern, displays the sprite 
 ; Input   :   none
 ; Output  :   none
-; Updates :   spriteIndex, rowSelected, columnSelected, chipPattern
+; Updates :   spriteIndex, rowSelected, chipPattern, whoseGo
 ;---------------------------------------------------------------------------------------------------------------
+        ld ix, columns
         ld a, 0
         ld (spriteIndex), a
-
-        ld a, 0
-        ld (rowSelected), a        
-        call getYPixel
-        ld h, 0
-        ld l, a
-        ld (chipY), hl
-
-        ld a, 1
-        ld (columnSelected), a
-        call getXPixel
-        ld h, 0
-        ld l, a
-        ld (chipX), hl
         
         ld a, (chipPattern)
         xor 4
@@ -109,15 +114,15 @@ newGo:
         inc a                                   ; board value is 1 or 5
         ld (whoseGo), a                         ; save it
 
-        call displaychip
+        call movechipLR
  
 ; wait until space bar is NOT being pressed
 ; otherwise might take as a go when user not ready
-ng1:
+.ng1:
         LD BC, $7ffe
         IN A, (C)
         AND %00000001
-        jr z, ng1
+        jr z, .ng1
         ret
 
 setSlotValue:
@@ -129,8 +134,10 @@ setSlotValue:
 ; Output  :   A = win line if win detected, otherwise 255
 ; Updates :   lineScore()
 ;             lineCount()
-; Preserved   HL
+; Preserved   BC
 ;----------------------------------------------------------------------------------------------------------------
+        push ix
+
         ; return the list of win lines that contain this chip (passed as BI 0..41)      
         ld ix, cellWinLines                     ; point to base of cellWinLines
         ld d, a                                 ; 
@@ -138,13 +145,16 @@ setSlotValue:
         mul d, e                                ; do the multiplication
         add ix, de                              ; and hence point IX to the winLines for this BI
 .nextWinLine:
-        ld de, lineScore                        ; point to base of lineScore() table
+;        ld de, lineScore                        ; point to base of lineScore() table
         ld a, (ix)                              ; get one of the win lines this chip is in
         cp 255                                  ; are we at the end of the list
-        ret z
-        ld l, a
-        ld h, 0                                 ; DE is the lineCount base, so we construct HL to add to it
-        add hl, de                              ; HL points to lineScore(winline)
+        jr z, .end
+        ld hl, lineScore
+        add hl, a
+;        ld l, a
+;        ld h, 0                                 ; DE is the lineCount base, so we construct HL to add to it
+;        add hl, de                              ; HL points to lineScore(winline)
+
 
         ld a, (whoseGo)                         ; who moved last
         cp yellowGo                             ; was it yellow?
@@ -160,11 +170,14 @@ setSlotValue:
 .winCheck:        
         ld a, b                                 ; get the saved lineScore
         cp 4                                    ; has anyone won?
-        ld a, (ix)                              ; set winline again in preparedness
-        ret z                                   ; return with A=winline 
+        jr z, .end
         inc ix                                  ; point to next winline        
         jr .nextWinLine                         ; otherwise check next winline
 
+.end:        
+        ld a, (ix)
+        pop ix
+        ret
 
 scoreYellowPosition:
 ;---------------------------------------------------------------------------------------------------------------
@@ -276,14 +289,14 @@ winnerDisplay:
 ; Output  :   none
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
-        call killSprites
-        call spritesOnTop
-
         ld ix, winLines                         ; point to base of winLines array
         ld d, a                                 ; set D = winline where win detected
         ld e, 4                                 ; each row is 4 bytes
         mul d, e                                ; multiply out to get the index offset
         add ix, de                              ; add to base
+
+        call killSprites
+        call spritesOnTop
 
         ld b, 4                                 ; there are 4 entries to process
 nextWinChip:
@@ -342,16 +355,18 @@ drawTilechip:
 
 ; first calculate tile position
 ; row part is ((row *4) + 4) * 40
-        ld a, (rowSelected)                     ; get row final
+        ld a, (rowSelected)                     ; get row final (1..6)
         ld d, a                                 ; save in D
         ld e, 4                                 ; we multiply by 4
         mul d, e                                ; calc (row * 4)
         add de, 4                               ; calc ((row * 4) + 4)
+
         ld d, 40                                ; ready multiply by 40
         mul d, e                                ; calc R = ((row * 4) + 4) * 40
 
 ; column part is (column * 4) + 1
-        ld a, (columnSelected)                  ; get column
+        ld a, (columnSelected)                  ; get column (0..6)
+        inc a                                   ; make it 1..7
         add a, a                                ; calc (column * 2)
         add a, a                                ; calc (column * 4)
         inc a                                   ; calc C = (column * 4) + 1
@@ -367,7 +382,7 @@ drawTilechip:
         ld b, redTile                           ; ok, its a red chip
 
 .replaceSprite:
-        ld a, b                                 ; get tile pattern to use
+        ld a, b                                 ; get start tile pattern to use
         ex de, hl                               ; we favour HL rather than DE for some reason
 
 ; tile line 1
@@ -378,6 +393,7 @@ drawTilechip:
         inc hl
         inc a
         ld (hl), a
+
         add hl, 38
         inc a
 
@@ -389,6 +405,7 @@ drawTilechip:
         inc hl
         inc a
         ld (hl), a
+
         add hl, 38
         inc a
 
@@ -411,18 +428,22 @@ movechipLR:
 ; Output  :   none
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
-        LD A, (columnSelected)                  ; get column selected (1 - 7)
+        LD A, (ix +0)                           ; get column selected (0 - 6)
         call getXPixel
         ld h, 0
         ld l, a
+
         LD (chipX), hl
+        ld h, 0
+        ld l, 24
+        ld (chipY), hl
         CALL displaychip
         ret
 
 movechipDown:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   column selected, drop the chip into appropriate column
-; Input   :   none
+; Input   :   (rowSelected) 1..6, (columnSelected) 0..6
 ; Output  :   none
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
@@ -487,8 +508,10 @@ displaychip:
                                                 ; bit    0 msb of Y coord
         NEXTREG $39, A                          ;
 
-
-        inc c
+;-----------------------------------------------------------------------------------------------
+; first relative sprite
+;-----------------------------------------------------------------------------------------------
+        inc c                                   ; add 1 to sprite index
         LD A, c                                 ; set first RELATIVE sprite
         NEXTREG $34, A                          ; set sprite to activate
 
@@ -501,7 +524,7 @@ displaychip:
         LD A, 1                                 ; use ANCHOR palette offset
         NEXTREG $37, A                          ; set attr byte 2 of port $0057
 
-        INC B
+        INC B                                   ; add 1 to chip pattern
         LD A, %11000000                         ; set visible and enable byte 4, patt offset 1
         OR B
         NEXTREG $38, A                          ; set attr byte 3 of port $0057
@@ -509,6 +532,9 @@ displaychip:
         LD A, %01000000                         ; set as RELATIVE and use relative pattern
         NEXTREG $79, A                          ; set attr byte 4 of port $0057
 
+;-----------------------------------------------------------------------------------------------
+; second relative sprite
+;-----------------------------------------------------------------------------------------------
         inc c
         LD A, c                                 ; set second RELATIVE sprite
         NEXTREG $34, A                          ; set sprite to activate
@@ -530,8 +556,11 @@ displaychip:
         LD A, %01000000                         ; set as RELATIVE and use relative pattern
         NEXTREG $79, A                          ; set attr byte 4 of port $0057
 
+;-----------------------------------------------------------------------------------------------
+; third relative sprite
+;-----------------------------------------------------------------------------------------------
         inc c
-        LD A, c                                 ; set second RELATIVE sprite
+        LD A, c                                 ; set third RELATIVE sprite
         NEXTREG $34, A                          ; set sprite to activate
 
         LD A, 16                                ; X offset from ANCHOR sprite is 0

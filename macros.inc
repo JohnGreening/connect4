@@ -22,8 +22,12 @@
     ; Input     :  B = number of chips in a given column C
     ;           :  C = column (0..6)
     ; Output    :  A = BI (0..41) i.e. (7 * row) + column
-        push bc
         push de
+
+        ld a, (ix +0)
+        ld c, a
+        ld a, (ix +1)
+        ld b, a
 
         ld a, 6                                 ; default column value
         sub b                                   ; adjust for chips in the column
@@ -33,11 +37,7 @@
         ld a, e                                 ; we only need the low byte for 0..41
         add c                                   ; add in column (0..6) and return BI
 
-     ;   cp 42
-     ;   jp nc, 0
-
         pop de
-        pop bc
     ENDM
 
     macro useRedColScore
@@ -45,9 +45,7 @@
     ; Input     :  C  = column being tested
     ; Output    :  IY = colScore(column)
 
-        ld a, c                                 ; get column being tested
-     ;   cp 7
-     ;   jp nc, 0
+        ld a, (ix +0)
 
         add a, a                                ; double since colScore values are 16 bit words
         ld iy, colScore                         ; point to base of colScore()
@@ -56,12 +54,27 @@
         add iy, de                              ; hence IY points to colScore(column)
     ENDM
 
-    macro call_preserve_HL_BC routine
-        push hl
-        push bc
+    macro useYellowColScore
+    ; point IY to colScore(column)
+    ; Input     :  C  = column being tested
+    ; Output    :  IY = colScore(column)
+
+;        ld a, c                                 ; get column being tested
+        ld a, (ix +0)
+     ;   cp 7
+     ;   jp nc, 0
+
+        add a, a                                ; double since colScore values are 16 bit words
+        ld iy, ycolScore                         ; point to base of colScore()
+        ld d, 0                                 ; default D
+        ld e, a                                 ; E = column * 2
+        add iy, de                              ; hence IY points to colScore(column)
+    ENDM
+
+    macro call_preserve_IX routine
+        push ix
 
         call routine
 
-        pop bc
-        pop hl
+        pop ix
     ENDM

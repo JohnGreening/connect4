@@ -1,5 +1,5 @@
-spritePixelX    db 36, 68, 100, 132, 164, 196, 228
-spritePixelY    db 24, 60, 92, 124, 156, 188, 220
+spritePixelX    db  36, 68, 100, 132, 164, 196, 228                             ; assumes column is 0..6
+spritePixelY    db  24, 60, 92, 124, 156, 188, 220
 
 ; there are 69 win lines in total for a 7 x 6 board
 winningCombos   equ 69

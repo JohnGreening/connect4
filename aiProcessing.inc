@@ -140,10 +140,6 @@ updateColScore:
 
 
 pickBestAIMove:
-        push bc
-        push de
-        push hl
-
 ;--------------------------------------------------------------------------------------------------
 ; Input : IY -> array of 7 signed 16-bit words (little-endian)
 ;         NB IY is passed so that we can pass in an alternative colScore for yellow min/max scores
@@ -209,38 +205,47 @@ pickBestAIMove:
 
         ld   a, e                               ; return index
 
-        pop bc
-        pop de
-        pop hl
         ret
 
 
 
 DoAIMove:
-        ld c, 0                                 ; column being tested
-        ld b, 7                                 ; loop for 7 columns
+;----------------------------------------------------------------------------------------------------------
+; purpose
+;  - loop through each of the columns 0..6
+;  - evaluate board position
+;  - pick best column
+;
+;  on return from here, we jump to keyEnter and so need ...
+;  - IX pointing to the column selected
+;----------------------------------------------------------------------------------------------------------
+        ld ix, columns                          ; point to columns data, i.e. how many chips in each column
 .loop:
-        ld a, c                                 ; get column
-        ld hl, columns                          ; point to columns array
-        add hl, a                               ; add in offset
-        ld a, (hl)                              ; get count of chips in this column
-
+        ld a, (ix +1)                           ; get chip count in column
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
         ; for each of these, we need to keep hold of BC, HL
-        call_preserve_HL_BC evaluateInitialYellow
-        call_preserve_HL_BC evaluateRedYellow1Ply
-        call_preserve_HL_BC evaluateColumnWeights
+  ;      call_preserve_IX evaluateInitialYellow
+  ;      call_preserve_IX evaluateRedYellow1Ply
+        call_preserve_IX evaluateColumnWeights
 .nextCol:
-        inc c                                   ; advance to next column
-        djnz .loop                              ; loop for all 7 columns
+        inc ix
+        inc ix
+        ld a, (ix +0)
+        cp 255
+        jr nz, .loop                            ; loop for all 7 columns
 
+; all 7 columns have been evaluated
+; now pick the best one and return
         ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; pick the best index from the scores
-        inc a                                   ; A=0..6, so make 1..7
-        ld (columnSelected), a                  ; store it
 
+        add a, a
+        ld d, 0
+        ld e, a
+        ld ix, columns
+        add ix, de
         ret
 
 
@@ -252,22 +257,21 @@ evaluateInitialYellow:
 ; Output  :   A  - winLine if win, otherwise 255
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
-        useRedColScore        
+        useYellowColScore        
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
-        inc (hl)                                ; increase chip count for the column
-        ld a, (hl)                              ; read back the cip count now
-        ld b, a                                 ; save column chip count
+        inc (ix +1)                             ; increase chip count for the column
         ld a, yellowGo                          ; simulate a yellow chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
 
-        calculateBoardIndex                     ; calculate A=BI (needs B=column chip count, C=column)
-        call setSlotValue                       ; place on board and evaluate
-        cp 255                                  ; win detected?
-        jr nz, .Win                             ; branch if so
-        jr .end                                 ; skip score update
-.Win:
-        LD DE, 10000                            ; yellow immediate threat, so give high score
+        calculateBoardIndex                     ; calculate A=BI (needs B=column chip count, C=column)          BC is preserved
+        call setSlotValue                       ; place on board and evaluate                                   BC is preserved
+;        cp 255                                  ; win detected?
+;        jr nz, .Win                             ; branch if so
+;        jr .end                                 ; skip score update
+;.Win:
+;        LD DE, 10000                            ; yellow immediate threat, so give high score
+        useRedColScore
         call updateColScore                     ; update score. ** Needs to be colScore(c)
 .end
         call restoreFromSnapA
@@ -294,18 +298,17 @@ evaluateColumnWeights:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   If nothing else to go on, favour the centre columns
 ; Input   :   C  - column being evaluated
-;             HL - columns(c)
 ; Output  :   none
 ; Updates :   colScore(IY)
 ;---------------------------------------------------------------------------------------------------------------
         useRedColScore
 
         ld hl, colWeights                       ; point to weights array
-        ld a, c                                 ; restore column
+        ld a, (ix +0)                           ; column to be evaluated
         add hl, a                               ; add in offset
 
         ld d, 0
-        ld e, (hl)                              ; get weight
+        ld e, (hl)                              ; get weight in DE
         call updateColScore                     ; (IY) = (IY) +/- DE
 
         ret

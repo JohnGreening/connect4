@@ -29,56 +29,6 @@ debugs:
         ret
 
 
-
-DispA
-; pass IY with location to display A
-; routine will display A (retained)
-        PUSH HL
-        PUSH DE
-        PUSH BC
-        PUSH AF
-        PUSH IX
-        LD H, 0
-        LD L, A
-        CALL DispA3Digit
-        POP IX
-        POP AF
-        POP BC
-        POP DE
-        POP HL
-        RET
-DispA1
-        PUSH AF
-        LD H, 0
-        LD L, A
-        CALL DispA1Digit
-        POP AF
-        RET
-DispA2
-        PUSH AF
-        LD H, 0
-        LD L, A
-        CALL DispA2Digit
-        POP AF
-        RET
-
-DispIX
-; pass IY with location to display IX
-; routine will display IX (retained)
-        PUSH HL
-        PUSH BC
-        PUSH AF
-        PUSH IX
-
-        PUSH IX
-        POP HL
-        CALL DispHL1
-        POP IX
-        POP AF
-        POP BC
-        POP HL
-        RET
-
 DispHL
 ; pass IY with location to display HL
 ; routine will display HL (retained)
@@ -117,25 +67,43 @@ DispHL1
              CALL num1
              LD BC, -1000
              CALL num1
-DispA3Digit                                 ; use this for 3 digits
-             LD BC, -100
-             CALL num1
-DispA2Digit
-             LD BC, -10
-             CALL num1
-DispA1Digit                                 ; use this for 1 digit
-             LD BC, -1
-num1
-             LD A, digitTileStart -1
-num2
-             INC A
-             ADD HL, BC
-             JR C, num2
-             SBC HL, BC
 
-             LD (IY), A
-             INC IY
-             RET
+DispA
+; pass IY with location to display A
+; routine will display A (retained)
+        PUSH HL
+        PUSH BC
+        PUSH AF
+        push iy
+        LD H, 0
+        LD L, A
+        CALL DispA3Digit
+        call keyV
+        pop iy
+        POP AF
+        POP BC
+        POP HL
+        RET
+
+DispA3Digit                                 ; use this for 3 digits
+        LD BC, -100
+        CALL num1
+DispA2Digit
+        LD BC, -10
+        CALL num1
+DispA1Digit                                 ; use this for 1 digit
+        LD BC, -1
+
+num1
+        LD A, digitTileStart -1
+num2
+        inc a
+        add hl, bc
+        JR C, num2
+        sbc hl, bc
+        LD (IY), A
+        INC IY
+        RET
 
 DispT
 ; pass IY pointing to text to display
