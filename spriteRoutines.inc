@@ -65,6 +65,10 @@ initialiseBoard:
         inc hl
         inc a
         djnz .loop1
+        ld a, 255
+        ld (hl), a
+        inc hl
+        ld (hl), c
         ret
 
 
@@ -339,7 +343,7 @@ div7:
         jr div7
 div7Done:
         ld e, a
-        inc e
+ ;       inc e
         ld d, b
         inc d
         pop bc
