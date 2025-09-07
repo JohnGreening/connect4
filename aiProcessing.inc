@@ -245,7 +245,7 @@ DoAIMove:
         jr z, .nextCol                          ; branch if so
 
         call evaluateInitialYellow
-  ;      call_preserve_IX evaluateRedYellow1Ply
+        call_preserve_IX evaluateRedYellow1Ply
         call evaluateColumnWeights
 
 .nextCol:
@@ -280,6 +280,7 @@ evaluateInitialYellow:
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
+        call initialiseYcolScore
 
         inc (ix +1)                             ; increase chip count for the column
         ld a, yellowGo                          ; simulate a yellow chip
@@ -411,23 +412,15 @@ simulateRed:
 ;             HL - columns(c)
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
-        push bc
-        push hl
-
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
-        ld a, (hl)                              ; get chips in column(c)
-        inc a                                   ; increase chip count for the column
-        ld (hl), a                              ; place in column
-        ld b, a                                 ; save column chip count
+        inc (ix +1)                             ; increase chip count for the column
         ld a, redGo                             ; simulate a yellow chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
 
         ; calculate row/column and hence BI (0..41)
         calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
-        call restoreFromSnapA
 
-        pop hl
-        pop bc
+        call restoreFromSnapA
         ret
