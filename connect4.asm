@@ -28,18 +28,25 @@ newGame:
         ld ix, columns
         displayText txtTitle
         displayText txtInstruction1
-        call newGo
 
 ; ----------------------------
 ; main game start
 ; ----------------------------
 MainLoop:
+        call newGo
+
         ld a, (whoseGo)
         cp redGo
-        jp z, AIMove
+        jr z, AIMove
         jr playerMove
 
+AIMove:
+        call DoAIMove
+        jp dropChip
+
 playerMove:
+        ld iy, colScore
+checkKeys:
         readKey $dffe, %00000001                ; check if "P" is pressed
         call z, keyRight                        ; move chip if allowed
 
@@ -50,7 +57,7 @@ playerMove:
         jp z, keyEnter                          ; branch if pressed
 
         readKey $fefe, %00000100                ; check if "X" pressed
-        JR NZ, playerMove                       ; branch if not
+        JR NZ, checkKeys                        ; branch if not
 
         CALL endProg                            ; tidy up sprites and turn off sound
         IM 1                                    ; restore im 1
@@ -93,8 +100,10 @@ keyEnter:
         call keyPause
         ld a, (ix +1)                           ; get chip count in column selected
         cp 6                                    ; are we full?
-        jp z, playerMove                        ; return if move invalid
+        jp z, checkKeys                         ; return if move invalid
 
+dropChip:
+        ld a, (ix +1)                           ; get chip count in column selected
         inc a                                   ; add the new chip
         ld (ix +1), a                           ; and store in columns
 
@@ -115,15 +124,11 @@ keyEnter:
         ld e, 7                                 ; multiply by 7
         mul d, e                                ; do it
         ld a, (columnSelected)                  ; get the column 
-   ;     dec a                                   ; make 0 based
         add a, e                                ; a is now  0-41 !
 
         call setSlotValue
-        ; expected return is A= winLine for a win, otherwise 255
-        ;                    C= line (0..68) where win detected
         cp 255
         jr nz, winDetected
-        call newGo
         jp MainLoop
 
 winDetected:
@@ -146,13 +151,6 @@ winDetected:
         readKey $7ffe, %00001000                ; see if "N" is pressed
         jr nz, .loop                            ; loop if not
         jp newGame                              ; jump if pressed
-
-AIMove:
-        call copyOriginalBoardState             ; back-up columns, lineScore, lineCount
-        call DoAIMove                             ; call the AI move routine
-        call restoreOriginalBoardState          ; restore original columns, lineScore, lineCount
-
-        jp keyEnter                             ; make the move
 
 
 setupIM2:

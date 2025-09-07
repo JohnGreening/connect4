@@ -1,3 +1,11 @@
+showA:
+        push iy
+        ld iy, tileMapData
+        call DispA
+        pop iy
+        ret
+
+
 debugs:
         push af
         push bc
@@ -67,6 +75,13 @@ DispHL1
              CALL num1
              LD BC, -1000
              CALL num1
+             LD BC, -100
+             CALL num1
+             LD BC, -10
+             CALL num1
+             LD BC, -1
+             call num1
+        ret
 
 DispA
 ; pass IY with location to display A

@@ -19,8 +19,7 @@
 
     macro calculateBoardIndex
     ; calculate BI (0..41)
-    ; Input     :  B = number of chips in a given column C
-    ;           :  C = column (0..6)
+    ; Input     :  IX +0 = column, IX +1 = chip count
     ; Output    :  A = BI (0..41) i.e. (7 * row) + column
         push de
 
@@ -40,36 +39,6 @@
         pop de
     ENDM
 
-    macro useRedColScore
-    ; point IY to colScore(column)
-    ; Input     :  C  = column being tested
-    ; Output    :  IY = colScore(column)
-
-        ld a, (ix +0)
-
-        add a, a                                ; double since colScore values are 16 bit words
-        ld iy, colScore                         ; point to base of colScore()
-        ld d, 0                                 ; default D
-        ld e, a                                 ; E = column * 2
-        add iy, de                              ; hence IY points to colScore(column)
-    ENDM
-
-    macro useYellowColScore
-    ; point IY to colScore(column)
-    ; Input     :  C  = column being tested
-    ; Output    :  IY = colScore(column)
-
-;        ld a, c                                 ; get column being tested
-        ld a, (ix +0)
-     ;   cp 7
-     ;   jp nc, 0
-
-        add a, a                                ; double since colScore values are 16 bit words
-        ld iy, ycolScore                         ; point to base of colScore()
-        ld d, 0                                 ; default D
-        ld e, a                                 ; E = column * 2
-        add iy, de                              ; hence IY points to colScore(column)
-    ENDM
 
     macro call_preserve_IX routine
         push ix

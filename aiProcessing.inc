@@ -1,4 +1,4 @@
-
+device ZXSPECTRUMNEXT
 
 redLUT      defw 0, 0,  0,    0,     0
             defw 0, 6,  0,    0,     0
@@ -119,25 +119,38 @@ restoreFromSnapB:
 updateColScore:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose   :   helper function to do (IY) = (IY) + DE
-; Input     :   IY - points to colScore for column being evaluated
-;               DE - score to add/subtract
+; Input     :   IY = base colScore / yColScore
+;               IX +0 = column being evaluated
+;               DE = score delta to apply
 ; Output    :   none
 ; Updates   :   colScore()
-; Preserves :   BC, DE, HL, IX, IY
 ;---------------------------------------------------------------------------------------------------------------
-        push hl
-        push af
+        push bc
+        ld a, (ix +0)                           ; current column 0..6
+        add a, a                                ; x 2 since scores are 2 bytes
+        ld b, 0                                 ; default d
+        ld c, a                                 ; offset in e
+        add iy, bc                              ; add to base colScore
 
         ld   l, (iy +0)                         ; get current low byte
         ld   h, (iy +1)                         ; get current high byte        
         add  hl, de                             
         ld   (iy +0), l                         ; store back low
         ld   (iy +1), h                         ; store back high
+        pop bc
 
-        pop af
-        pop hl
         ret
 
+initialiseYcolScore:
+        ld iy, ycolScore
+        ld b, 7
+.loop
+        ld (iy +0), 0
+        ld (iy +1), 0
+        inc iy
+        inc iy
+        djnz .loop
+        ret
 
 pickBestAIMove:
 ;--------------------------------------------------------------------------------------------------
@@ -219,60 +232,77 @@ DoAIMove:
 ;  on return from here, we jump to keyEnter and so need ...
 ;  - IX pointing to the column selected
 ;----------------------------------------------------------------------------------------------------------
+        call copyOriginalBoardState             ; back-up columns, lineScore, lineCount
+        call initialiseYcolScore
+
         ld ix, columns                          ; point to columns data, i.e. how many chips in each column
 .loop:
+        ld a, (ix +0)                           ; get column
+        cp 255                                  ; check end of columns
+        jr z, .end                              ; branch if finished
         ld a, (ix +1)                           ; get chip count in column
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
-        ; for each of these, we need to keep hold of BC, HL
-  ;      call_preserve_IX evaluateInitialYellow
+        call evaluateInitialYellow
   ;      call_preserve_IX evaluateRedYellow1Ply
-        call_preserve_IX evaluateColumnWeights
+        call evaluateColumnWeights
+
 .nextCol:
         inc ix
         inc ix
-        ld a, (ix +0)
-        cp 255
-        jr nz, .loop                            ; loop for all 7 columns
+        jr .loop                                ; loop for all 7 columns
 
 ; all 7 columns have been evaluated
 ; now pick the best one and return
+.end
+        call debugs
         ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; pick the best index from the scores
+;        call showA
 
+; set ix to point to the column selected
         add a, a
         ld d, 0
         ld e, a
         ld ix, columns
         add ix, de
+        call restoreOriginalBoardState        
         ret
 
 
 evaluateInitialYellow:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate yellow threat
-; Input   :   C  - column being evaluated
-;             HL - columns(c)
-; Output  :   A  - winLine if win, otherwise 255
+; Input   :   
+;             
+; Output  :
 ; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
-        useYellowColScore        
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         inc (ix +1)                             ; increase chip count for the column
         ld a, yellowGo                          ; simulate a yellow chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
+        calculateBoardIndex                     ; calculate A=BI from IX +0, IX+= +1
+        call setSlotValue                       ; place on board and evaluate
 
-        calculateBoardIndex                     ; calculate A=BI (needs B=column chip count, C=column)          BC is preserved
-        call setSlotValue                       ; place on board and evaluate                                   BC is preserved
-;        cp 255                                  ; win detected?
-;        jr nz, .Win                             ; branch if so
-;        jr .end                                 ; skip score update
-;.Win:
-;        LD DE, 10000                            ; yellow immediate threat, so give high score
-        useRedColScore
-        call updateColScore                     ; update score. ** Needs to be colScore(c)
+        ld a, (winLine)
+        cp 255
+        jr z, .end
+;        call showA
+
+        ; ycolScore will have been updated
+        ; get this score and add it to colScore
+;        ld a, (ix +0)
+;        add a, a
+;        ld iy, ycolScore
+;        ld e, (iy +0)
+;        ld d, (iy +1)
+        ld de, 10000
+        ld iy, colScore
+        call updateColScore                     ; update score
+
 .end
         call restoreFromSnapA
         ret
@@ -289,7 +319,6 @@ evaluateRedYellow1Ply:
 ;---------------------------------------------------------------------------------------------------------------
 
 ; this routine will be called for each valid column
-        useRedColScore
         call simulateRed
 
         ret
@@ -297,18 +326,18 @@ evaluateRedYellow1Ply:
 evaluateColumnWeights:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   If nothing else to go on, favour the centre columns
-; Input   :   C  - column being evaluated
-; Output  :   none
-; Updates :   colScore(IY)
+; Input   :   
+; Output  :   
+; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
-        useRedColScore
-
         ld hl, colWeights                       ; point to weights array
         ld a, (ix +0)                           ; column to be evaluated
         add hl, a                               ; add in offset
 
         ld d, 0
         ld e, (hl)                              ; get weight in DE
+
+        ld iy, colScore
         call updateColScore                     ; (IY) = (IY) +/- DE
 
         ret

@@ -6,6 +6,8 @@ chipPattern     db 4
 columnSelected  db 1                            ; holds last column 1 - 7
 rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)
 whoseGo         db 0                            ; last board value used 1 or 5
+winLine         db 0                            ; holds last win line where detected or 255
+
 
 ; the connect 4 board data
 columns         db   0, 0                       ; column index, chip count
@@ -108,12 +110,12 @@ newGo:
 ; Output  :   none
 ; Updates :   spriteIndex, rowSelected, chipPattern, whoseGo
 ;---------------------------------------------------------------------------------------------------------------
-        ld ix, columns
-        ld a, 0
+        ld ix, columns                          ; point IX to columns data
+        ld a, 0                                 ; reset the sprite index
         ld (spriteIndex), a
         
-        ld a, (chipPattern)
-        xor 4
+        ld a, (chipPattern)                     ; get the last chip pattern used
+        xor 4                                   ; reverse it for next player
         ld (chipPattern), a
         inc a                                   ; board value is 1 or 5
         ld (whoseGo), a                         ; save it
@@ -140,24 +142,22 @@ setSlotValue:
 ;             lineCount()
 ; Preserved   BC
 ;----------------------------------------------------------------------------------------------------------------
-        push ix
-
         ; return the list of win lines that contain this chip (passed as BI 0..41)      
-        ld ix, cellWinLines                     ; point to base of cellWinLines
+        ld iy, cellWinLines                     ; point to base of cellWinLines
         ld d, a                                 ; 
         ld e, 14                                ; each line is 14 bytes for each BI
         mul d, e                                ; do the multiplication
-        add ix, de                              ; and hence point IX to the winLines for this BI
-.nextWinLine:
-;        ld de, lineScore                        ; point to base of lineScore() table
-        ld a, (ix)                              ; get one of the win lines this chip is in
+        add iy, de                              ; and hence point IX to the winLines for this BI
+
+        ld a, 255                               ; default to no win detected
+        ld (winLine), a                         ; set it
+
+.loop:
+        ld a, (iy)                              ; get one of the win lines this chip is in
         cp 255                                  ; are we at the end of the list
-        jr z, .end
-        ld hl, lineScore
-        add hl, a
-;        ld l, a
-;        ld h, 0                                 ; DE is the lineCount base, so we construct HL to add to it
-;        add hl, de                              ; HL points to lineScore(winline)
+        jr z, .end                              ; branch if so, end of processing for this BI
+        ld hl, lineScore                        ; point to base of lineScore
+        add hl, a                               ; point to lineScore for this winline
 
 
         ld a, (whoseGo)                         ; who moved last
@@ -174,13 +174,15 @@ setSlotValue:
 .winCheck:        
         ld a, b                                 ; get the saved lineScore
         cp 4                                    ; has anyone won?
-        jr z, .end
-        inc ix                                  ; point to next winline        
-        jr .nextWinLine                         ; otherwise check next winline
+        jr nz, .nextWinLine                     ; branch if not
+        ld a, (iy)                              ; otherwise get the winline
+        ld (winLine), a                         ; and store it
 
+.nextWinLine:
+        inc iy                                  ; point to next winline        
+        jr .loop                                ; otherwise check next winline
 .end:        
-        ld a, (ix)
-        pop ix
+        ld a, (winLine)                         ; return with any winline
         ret
 
 scoreYellowPosition:
@@ -191,16 +193,17 @@ scoreYellowPosition:
 ; Output  :   A = updated lineScore(winline)
 ; Updates :   lineScore()
 ;             lineCount()
-; Preserved   DE
-;----------------------------------------------------------------------------------------------------------------
+;             ycolScore()
+; Preserved   
+;----------------------------------------------------------------------------------------------------------------       
         ; update lineScore(?) and lineCount(?)
-        inc (hl)                                ; update lineScore(?). +1 for yellow, -1 for red
+        inc (hl)                                ; update lineScore(). +1 for yellow
         ld a, (hl)                              ; get the new value
-        ld b, a                                 ; save lineScore(?) in B
-        add hl, 69                              ; point to lineCount(?)
-        inc (hl)                                ; add 1 to lineCount(?)
+        ld b, a                                 ; save lineScore() in B for LUT
+        add hl, 69                              ; point to lineCount()
+        inc (hl)                                ; add 1 to lineCount()
         ld a, (hl)                              ; get the new value
-        ld c, a                                 ; save lineCount(?) in C
+        ld c, a                                 ; save lineCount() in C for LUT
 
         ; we only score for lineScores(?) of 0, 1, 2, 3 & 4 (red moves can make it negative)
         ld a, b
@@ -211,7 +214,11 @@ scoreYellowPosition:
         ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
         ld hl, yellowLUT                        ; point to base of table
         call readLUT
+
+        push iy
+        ld iy, ycolScore
         call updateColScore                     ; apply delta to overall column score
+        pop iy
 
 .end:
         ld a, b                                 ; return with lineScore (+4 indicates a win)
@@ -228,13 +235,13 @@ scoreRedPosition:
 ; Preserved   DE
 ;----------------------------------------------------------------------------------------------------------------
         ; update lineScore(?) and lineCount(?)
-        dec (hl)                                ; update lineScore(?). +1 for yellow, -1 for red
+        dec (hl)                                ; update lineScore(). -1 for red
         ld a, (hl)                              ; get the new value
-        ld b, a                                 ; save lineScore(?) in B
-        add hl, 69                              ; point to lineCount(?)
-        inc (hl)                                ; add 1 to lineCount(?)
+        ld b, a                                 ; save lineScore() in B for LUT
+        add hl, 69                              ; point to lineCount()
+        inc (hl)                                ; add 1 to lineCount()
         ld a, (hl)                              ; get the new value
-        ld c, a                                 ; save lineCount(?) in C
+        ld c, a                                 ; save lineCount() in C for LUT
 
         ; we only score for lineScores(?) of  -1, -2, -3 & -4 (red moves can make it negative)
         ld a, b
@@ -249,7 +256,11 @@ scoreRedPosition:
         ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
         ld hl, redLUT                           ; point to base of table
         call readLUT
+
+        push iy
+        ld iy, colScore
         call updateColScore                     ; apply delta to overall column score
+        pop iy
 
 .end:
         ld a, b                                 ; return with lineScore (+4 indicates a win)
