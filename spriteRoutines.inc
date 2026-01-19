@@ -40,11 +40,14 @@ setSlotValue:
 ;             lineCount()
 ;----------------------------------------------------------------------------------------------------------------
         ; return the list of win lines that contain this chip (passed as BI 0..41)      
+        push hl
+        push bc
+
         ld iy, cellWinLines                     ; point to base of cellWinLines
         ld d, a                                 ; 
         ld e, 14                                ; each line is 14 bytes for each BI
         mul d, e                                ; do the multiplication
-        add iy, de                              ; and hence point IX to the winLines for this BI
+        add iy, de                              ; and hence point IY to the winLines for this BI
 
         ld a, 255                               ; default to no win detected
         ld (winLine), a                         ; set it
@@ -81,6 +84,8 @@ setSlotValue:
         jr .loop                                ; otherwise check next winline
 .end:        
         ld a, (winLine)                         ; return with any winline
+        pop bc
+        pop hl
         ret
 
 scoreYellowPosition:

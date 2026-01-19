@@ -166,9 +166,6 @@ calculateBoardIndex
 ; calculate BI (0..41)
 ; Input     :  IX pointing to columns data (IX +0 = column selected, IX +1 = chip count)
 ; Output    :  A = BI (0..41) i.e. (7 * row) + column
-        push de
-        push bc
-
         ld c, (ix +0)                           ; get "selected" column 0-6
         ld b, (ix +1)                           ; get chip count in that column
 
@@ -180,9 +177,6 @@ calculateBoardIndex
         ld a, e                                 ; we only need the low byte for 0..41
         add c                                   ; add in column (0..6) and return BI
 
-        pop bc
-        pop de
-    
         ret
 
 
