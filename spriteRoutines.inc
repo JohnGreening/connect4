@@ -1,77 +1,3 @@
-spriteIndex     db 0
-chipX           defw 36
-chipY           defw 24
-chipPattern     db 4
-
-columnSelected  db 1                            ; holds last column 1 - 7
-rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)
-whoseGo         db 0                            ; last board value used 1 or 5
-winLine         db 0                            ; holds last win line where detected or 255
-
-
-; the connect 4 board data
-columns         db   0, 0                       ; column index, chip count
-                db   1, 0
-                db   2, 0
-                db   3, 0
-                db   4, 0
-                db   5, 0
-                db   6, 0
-                db   255, 0                     ; this is the quit row
-lineScore       defs 69, 0                      ; for each win line, a score (each yellow +1, each red -1, +4/-4 = win)
-lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
-boardEnd        db 0
-boardStateLen   equ boardEnd - columns
-
-
-; sprite patterns
-yellowChip      equ 0                           ; sprites 0 - 3
-redChip         equ 4                           ; sprites 4 - 7
-
-; tile patterns
-yellowTile      equ 1                           ; tiles 1 - 9
-redTile         equ 24                          ; tiles 24 - 32
-
-; board array values
-yellowGo        equ yellowChip +1
-redGo           equ redChip +1
-
-INCLUDE "lookupTables.inc"
-
-
-initialiseBoard:
-;---------------------------------------------------------------------------------------------------------------
-; Purpose :   initialise board state, i.e. columns(), lineScore(), lineCount()
-; Input   :   none
-; Output  :   none
-; Updates :   columns(), lineScore(), lineCount() 
-;---------------------------------------------------------------------------------------------------------------
-; first initialise the lineScore(), lineCount values
-        ld a, 0
-        ld hl, lineScore
-        ld b,  boardEnd - lineScore
-.loop:
-        ld (hl), a
-        inc hl
-        djnz .loop
-
-; now initialise columns()
-        ld b, 7
-        ld a, 0
-        ld c, 0
-        ld hl, columns
-.loop1:
-        ld (hl), a
-        inc hl
-        ld (hl), c
-        inc hl
-        inc a
-        djnz .loop1
-        ld a, 255
-        ld (hl), a
-        inc hl
-        ld (hl), c
-        ret
 
 
 getYPixel:
@@ -82,7 +8,7 @@ getYPixel:
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
         push de
-        ld de, spritePixelY
+        ld de, YPixelLookup
         add de, a
         ld a, (de)
         pop de
@@ -96,40 +22,13 @@ getXPixel:
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
         push de
-        ld de, spritePixelX
+        ld de, XPixelLookup
         add de, a
 ;        dec de
         ld a, (de)
         pop de
         ret
 
-newGo:
-;---------------------------------------------------------------------------------------------------------------
-; Purpose :   set initial sprite data for the start of a new move, flip sprite pattern, displays the sprite 
-; Input   :   none
-; Output  :   none
-; Updates :   spriteIndex, rowSelected, chipPattern, whoseGo
-;---------------------------------------------------------------------------------------------------------------
-        ld ix, columns                          ; point IX to columns data
-        ld a, 0                                 ; reset the sprite index
-        ld (spriteIndex), a
-        
-        ld a, (chipPattern)                     ; get the last chip pattern used
-        xor 4                                   ; reverse it for next player
-        ld (chipPattern), a
-        inc a                                   ; board value is 1 or 5
-        ld (whoseGo), a                         ; save it
-
-        call movechipLR
- 
-; wait until space bar is NOT being pressed
-; otherwise might take as a go when user not ready
-.ng1:
-        LD BC, $7ffe
-        IN A, (C)
-        AND %00000001
-        jr z, .ng1
-        ret
 
 setSlotValue:
 ;---------------------------------------------------------------------------------------------------------------
@@ -140,7 +39,6 @@ setSlotValue:
 ; Output  :   A = win line if win detected, otherwise 255
 ; Updates :   lineScore()
 ;             lineCount()
-; Preserved   BC
 ;----------------------------------------------------------------------------------------------------------------
         ; return the list of win lines that contain this chip (passed as BI 0..41)      
         ld iy, cellWinLines                     ; point to base of cellWinLines
@@ -168,6 +66,7 @@ setSlotValue:
 .redGo:
         call scoreRedPosition
         jr .winCheck                            ; and check for a win
+        
 .yellowGo:
         call scoreYellowPosition
 
@@ -194,7 +93,6 @@ scoreYellowPosition:
 ; Updates :   lineScore()
 ;             lineCount()
 ;             ycolScore()
-; Preserved   
 ;----------------------------------------------------------------------------------------------------------------       
         ; update lineScore(?) and lineCount(?)
         inc (hl)                                ; update lineScore(). +1 for yellow
@@ -232,7 +130,6 @@ scoreRedPosition:
 ; Output  :   A = updated lineScore(winline)
 ; Updates :   lineScore()
 ;             lineCount()
-; Preserved   DE
 ;----------------------------------------------------------------------------------------------------------------
         ; update lineScore(?) and lineCount(?)
         dec (hl)                                ; update lineScore(). -1 for red
@@ -435,25 +332,22 @@ drawTilechip:
 
         ret
 
+;
+; Position and show chip given selected column
+;
+positionChip:
+        LD A, (ix +0)                           ; lookup selected column (0-6) from columns
+        call getXPixel                          ; lookup X pixel coord for this column
 
-movechipLR:
-;---------------------------------------------------------------------------------------------------------------
-; Purpose :   set sprite horizontal position when selecting column
-; Input   :   none
-; Output  :   none
-; Updates :   none
-;---------------------------------------------------------------------------------------------------------------
-        LD A, (ix +0)                           ; get column selected (0 - 6)
-        call getXPixel
-        ld h, 0
-        ld l, a
+        ld h, 0                                 ; set X coord high byte
+        ld l, a                                 ; set X coord low byte
+        LD (chipX), hl                          ; store coord for sprite routine
 
-        LD (chipX), hl
-        ld h, 0
-        ld l, 24
-        ld (chipY), hl
-        CALL displaychip
-        ret
+        ld h, 0                                 ; default Y coord high byte
+        ld l, 24                                ; default Y coord low byte
+        ld (chipY), hl                          ; store coord for sprite routine
+        CALL displaychip                        ; finally show the sprite
+        ret                                     ; ... and return
 
 movechipDown:
 ;---------------------------------------------------------------------------------------------------------------

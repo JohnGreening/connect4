@@ -1,10 +1,20 @@
-spritePixelX    db  36, 68, 100, 132, 164, 196, 228                             ; assumes column is 0..6
-spritePixelY    db  24, 60, 92, 124, 156, 188, 220
+XPixelLookup    db  36, 68, 100, 132, 164, 196, 228                             ; column is 0..6
+YPixelLookup    db  24, 60, 92, 124, 156, 188, 220                              ; row 0 - 7, where 0 is when placing chip before pressing enter to drop
 
 ; there are 69 win lines in total for a 7 x 6 board
 winningCombos   equ 69
 
 ; this table is 69 rows and details which cells (0..41) are in that win line
+; the cells are
+;    1   2   3   4   5   6   7
+;    __________________________
+;1|  0   1   2   3   4   5   6
+;2|  7   8   9   10  11  12  13
+;3|  14  15  16  17  18  19  20
+;4|  21  22  23  24  25  26  27
+;5|  28  29  30  31  32  33  34
+;6|  35  36  37  38  39  40  41
+
 winLines
                 DB 0,1,2,3                      ; win line 0
                 DB 1,2,3,4                      ; win line 1

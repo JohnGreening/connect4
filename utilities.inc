@@ -169,6 +169,20 @@ keyV:
         pop af
         ret
 
+; routine to loop until the space bar is NOT pressed
+chkSpaceNotPressed
+        push bc                                 ; save BC
+        push af                                 ; save AF
+        LD BC, $7ffe                            ; space bar key port
+.loop
+        IN A, (C)                               ; read port
+        AND %00000001                           ; isolate space key
+        jr z, .loop                             ; if pressed, loop
+        pop af                                  ; restore AF
+        pop bc                                  ; restore BC
+        ret                                     ; and return
+
+
 LFSRSeed DB $12, $34, $56, $78, $9a, $bc, $de, $f0
 rseed    DB 1
 rndY     DB 24,32,48,64,80,96,104,120,136,152,168,176,192,208,224,240

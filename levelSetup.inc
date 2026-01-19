@@ -17,6 +17,36 @@ displayBoard:
 
         RET                                     ; return
 
+;
+; initialise board state, i.e. columns(), lineScore(), lineCount()
+;
+initialiseBoard:
+; first initialise the lineScore(), lineCount values
+        ld a, 0
+        ld hl, lineScore
+        ld b,  boardEnd - lineScore
+.loop:
+        ld (hl), a
+        inc hl
+        djnz .loop
+
+; now initialise columns()
+        ld b, 7
+        ld a, 0
+        ld c, 0
+        ld hl, columns
+.loop1:
+        ld (hl), a
+        inc hl
+        ld (hl), c
+        inc hl
+        inc a
+        djnz .loop1
+        ld a, 255
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        ret
 
 
 endProg:

@@ -237,10 +237,10 @@ DoAIMove:
 
         ld ix, columns                          ; point to columns data, i.e. how many chips in each column
 .loop:
-        ld a, (ix +0)                           ; get column
-        cp 255                                  ; check end of columns
-        jr z, .end                              ; branch if finished
         ld a, (ix +1)                           ; get chip count in column
+        cp 255                                  ; check end of columns marker
+        jr z, .end                              ; branch if finished
+;        ld a, (ix +1)                           ; get chip count in column
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
@@ -258,15 +258,15 @@ DoAIMove:
 .end
         call debugs
         ld iy, colScore                         ; set to pick from best Red move
-        call pickBestAIMove                     ; pick the best index from the scores
+        call pickBestAIMove                     ; return A as the best index from the scores
 ;        call showA
 
 ; set ix to point to the column selected
-        add a, a
-        ld d, 0
-        ld e, a
-        ld ix, columns
-        add ix, de
+        add a, a                                ; columns is 2 bytes per column, so double A
+        ld d, 0                                 ; default high byte
+        ld e, a                                 ; e = 2 * A
+        ld ix, columns                          ; set base
+        add ix, de                              ; add offset
         call restoreOriginalBoardState        
         ret
 
