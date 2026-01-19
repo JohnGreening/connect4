@@ -111,26 +111,6 @@ random
         LD (rseed),A
         RET
 
-randomY
-        CALL random1
-        AND %00001111
-        LD HL, rndY
-        ADD HL, A
-        LD A, (HL)
-        RET
-randomX
-        CALL random1
-        AND %00001111
-        ADD A, A
-        LD HL, rndX
-        ADD HL, A
-        LD A, (HL)
-        LD D, A
-        INC HL
-        LD A, (HL)
-        LD H, A
-        LD L, D
-        RET
 
 keyC:
         push bc
@@ -189,10 +169,8 @@ calculateBoardIndex
         push de
         push bc
 
-        ld a, (ix +0)                           ; get "selected" column 0-6
-        ld c, a                                 ; preserve in C
-        ld a, (ix +1)                           ; get chip count in that column
-        ld b, a                                 ; preserve in B
+        ld c, (ix +0)                           ; get "selected" column 0-6
+        ld b, (ix +1)                           ; get chip count in that column
 
         ld a, 6                                 ; default A=6
         sub b                                   ; - chip count giving row index of 0-6
@@ -212,5 +190,3 @@ calculateBoardIndex
 
 LFSRSeed DB $12, $34, $56, $78, $9a, $bc, $de, $f0
 rseed    DB 1
-rndY     DB 24,32,48,64,80,96,104,120,136,152,168,176,192,208,224,240
-rndX     DW 0,16,40,64,80,104,128,144,168,192,208,232,256,272,296,320

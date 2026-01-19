@@ -350,8 +350,11 @@ subsequentYellow:
         ld b, 7                                 ; loop for 7 columns
 .loop:
         ld a, c                                 ; get column
+        add a, a                                ; double column number since byte 0 = column number, byte 1 is chip count
+        
         ld hl, columns                          ; point to columns array
         add hl, a                               ; add in offset
+        inc hl                                  ; point to chip count for column
         ld a, (hl)                              ; get count of chips in this column
 
         cp 6                                    ; is it full
