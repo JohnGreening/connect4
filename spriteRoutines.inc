@@ -66,7 +66,7 @@ setSlotValue:
 .redGo:
         call scoreRedPosition
         jr .winCheck                            ; and check for a win
-        
+
 .yellowGo:
         call scoreYellowPosition
 

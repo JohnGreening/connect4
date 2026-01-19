@@ -182,6 +182,33 @@ chkSpaceNotPressed
         pop bc                                  ; restore BC
         ret                                     ; and return
 
+calculateBoardIndex
+; calculate BI (0..41)
+; Input     :  IX pointing to columns data (IX +0 = column selected, IX +1 = chip count)
+; Output    :  A = BI (0..41) i.e. (7 * row) + column
+        push de
+        push bc
+
+        ld a, (ix +0)                           ; get "selected" column 0-6
+        ld c, a                                 ; preserve in C
+        ld a, (ix +1)                           ; get chip count in that column
+        ld b, a                                 ; preserve in B
+
+        ld a, 6                                 ; default A=6
+        sub b                                   ; - chip count giving row index of 0-6
+        ld d, a                                 ; save in D for multiplication
+        ld e, 7                                 ; .. by 7
+        mul d, e                                ; do the multiplication
+        ld a, e                                 ; we only need the low byte for 0..41
+        add c                                   ; add in column (0..6) and return BI
+
+        pop bc
+        pop de
+    
+        ret
+
+
+
 
 LFSRSeed DB $12, $34, $56, $78, $9a, $bc, $de, $f0
 rseed    DB 1

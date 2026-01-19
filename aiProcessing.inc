@@ -118,27 +118,27 @@ restoreFromSnapB:
 
 updateColScore:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose   :   helper function to do (IY) = (IY) + DE
-; Input     :   IY = base colScore / yColScore
-;               IX +0 = column being evaluated
-;               DE = score delta to apply
-; Output    :   none
-; Updates   :   colScore()
+; Purpose   :   colScore/yColScore(0-6) arrays hold the working score values to evaluate best AI move
+;               IX +0 holds the current column being evaluated
+;               we add DE to the colScore/yColScore(current column)                
 ;---------------------------------------------------------------------------------------------------------------
         push bc
+        push hl
+
         ld a, (ix +0)                           ; current column 0..6
         add a, a                                ; x 2 since scores are 2 bytes
-        ld b, 0                                 ; default d
-        ld c, a                                 ; offset in e
-        add iy, bc                              ; add to base colScore
+        ld b, 0                                 ; default b
+        ld c, a                                 ; offset in c
+        add iy, bc                              ; add to base colScore/yColScore
 
         ld   l, (iy +0)                         ; get current low byte
         ld   h, (iy +1)                         ; get current high byte        
         add  hl, de                             
         ld   (iy +0), l                         ; store back low
         ld   (iy +1), h                         ; store back high
-        pop bc
 
+        pop hl
+        pop bc
         ret
 
 initialiseYcolScore:
@@ -240,18 +240,20 @@ DoAIMove:
         ld a, (ix +1)                           ; get chip count in column
         cp 255                                  ; check end of columns marker
         jr z, .end                              ; branch if finished
-;        ld a, (ix +1)                           ; get chip count in column
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
-        call evaluateInitialYellow
+        ; check for an immediate yellow win
+        call evaluateImmediateThreat
+
+
         call_preserve_IX evaluateRedYellow1Ply
         call evaluateColumnWeights
 
 .nextCol:
-        inc ix
-        inc ix
-        jr .loop                                ; loop for all 7 columns
+        inc ix                                  ; advance over board number
+        inc ix                                  ; advance over chip count
+        jr .loop                                ; loop for next column
 
 ; all 7 columns have been evaluated
 ; now pick the best one and return
@@ -271,13 +273,9 @@ DoAIMove:
         ret
 
 
-evaluateInitialYellow:
+evaluateImmediateThreat:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate yellow threat
-; Input   :   
-;             
-; Output  :
-; Updates :   
+; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate player (yellow) threat
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
         call initialiseYcolScore
@@ -285,12 +283,12 @@ evaluateInitialYellow:
         inc (ix +1)                             ; increase chip count for the column
         ld a, yellowGo                          ; simulate a yellow chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
-        calculateBoardIndex                     ; calculate A=BI from IX +0, IX+= +1
+        call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
-        ld a, (winLine)
-        cp 255
-        jr z, .end
+        ld a, (winLine)                         ; check winline result
+        cp 255                                  ; is it 255, i.e. no immediate win
+        jr z, .end                              ; branch if so
 ;        call showA
 
         ; ycolScore will have been updated
@@ -300,8 +298,8 @@ evaluateInitialYellow:
 ;        ld iy, ycolScore
 ;        ld e, (iy +0)
 ;        ld d, (iy +1)
-        ld de, 10000
-        ld iy, colScore
+        ld de, 10000                            ; set DE with a large score - we probably want to do this move
+        ld iy, colScore                         ; point to AI colscore table
         call updateColScore                     ; update score
 
 .end
@@ -386,7 +384,7 @@ simulateYellow:
         ld a, yellowGo                          ; simulate a yellow chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
 
-        calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
+        call calculateBoardIndex                ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
 ;.noWin
         ; code here will evaluate yellows move
@@ -415,11 +413,11 @@ simulateRed:
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         inc (ix +1)                             ; increase chip count for the column
-        ld a, redGo                             ; simulate a yellow chip
+        ld a, redGo                             ; simulate an AI (red) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
 
         ; calculate row/column and hence BI (0..41)
-        calculateBoardIndex                     ; calculate BI (needs B=column chip count, C=column)
+        call calculateBoardIndex                ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
 
         call restoreFromSnapA

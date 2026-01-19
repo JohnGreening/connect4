@@ -133,15 +133,7 @@ dropChip:
         playSoundEffect soundDrop
         call movechipDown
 
-; determine board aray element 0..41
-        ld a, (rowSelected)                     ; get row (1-6)
-        dec a                                   ; make 0 based
-        ld d, a                                 ; put in D ready for multiplication
-        ld e, 7                                 ; multiply by 7
-        mul d, e                                ; do it
-        ld a, (columnSelected)                  ; get the column 
-        add a, e                                ; a is now  0-41 !
-
+        call calculateBoardIndex                ; return BI (boardindex 0-41) for "selected" row/column
         call setSlotValue                       ; calculate the "board value" and hence did we win !
         cp 255                                  ; 255 means no winner
         jr nz, winDetected                      ; branch if not 255, winner detected !
