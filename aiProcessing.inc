@@ -22,6 +22,7 @@ originalSnapshot defs boardStateLen, 0
 snapA            defs boardStateLen, 0
 snapB            defs boardStateLen, 0
 
+columnScoreValue dw 0000
 
 copyWhoseGo     db 0
 
@@ -118,39 +119,33 @@ restoreFromSnapB:
 
 updateColScore:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose   :   colScore/yColScore(0-6) arrays hold the working score values to evaluate best AI move
+; Purpose   :   colScore(0-6) arrays hold the working score values to evaluate best AI move
 ;               IX +0 holds the current column being evaluated
-;               we add DE to the colScore/yColScore(current column)                
+;               we add DE to the colScore(current column)                
 ;---------------------------------------------------------------------------------------------------------------
         push bc
         push hl
+        push de
 
         ld a, (ix +0)                           ; current column 0..6
         add a, a                                ; x 2 since scores are 2 bytes
         ld b, 0                                 ; default b
         ld c, a                                 ; offset in c
+        ld iy, colScore                         ; set base of column score array
         add iy, bc                              ; add to base colScore/yColScore
 
         ld   l, (iy +0)                         ; get current low byte
-        ld   h, (iy +1)                         ; get current high byte        
+        ld   h, (iy +1)                         ; get current high byte 
+        ld de, (columnScoreValue)               ; get the value to update
         add  hl, de                             
         ld   (iy +0), l                         ; store back low
         ld   (iy +1), h                         ; store back high
 
+        pop de
         pop hl
         pop bc
         ret
 
-initialiseYcolScore:
-        ld iy, ycolScore
-        ld b, 7
-.loop
-        ld (iy +0), 0
-        ld (iy +1), 0
-        inc iy
-        inc iy
-        djnz .loop
-        ret
 
 pickBestAIMove:
 ;--------------------------------------------------------------------------------------------------
@@ -233,10 +228,12 @@ DoAIMove:
 ;  - IX pointing to the column selected
 ;----------------------------------------------------------------------------------------------------------
         call copyOriginalBoardState             ; back-up columns, lineScore, lineCount
-        call initialiseYcolScore
-
+ 
         ld ix, columns                          ; point to columns data, i.e. how many chips in each column
 .loop:
+        ld hl, 0                                ; default this column score to 0
+        ld (columnScoreValue), HL               ; set it
+
         ld a, (ix +1)                           ; get chip count in column
         cp 255                                  ; check end of columns marker
         jr z, .end                              ; branch if finished
@@ -247,10 +244,11 @@ DoAIMove:
         call evaluateImmediateThreat
 
 
-        call_preserve_IX evaluateRedYellow1Ply
+        call evaluateRedYellow1Ply
         call evaluateColumnWeights
 
 .nextCol:
+        call updateColScore
         inc ix                                  ; advance over board number
         inc ix                                  ; advance over chip count
         jr .loop                                ; loop for next column
@@ -278,31 +276,13 @@ evaluateImmediateThreat:
 ; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate player (yellow) threat
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
-        call initialiseYcolScore
-
+ 
         inc (ix +1)                             ; increase chip count for the column
         ld a, yellowGo                          ; simulate a yellow chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
-        ld a, (winLine)                         ; check winline result
-        cp 255                                  ; is it 255, i.e. no immediate win
-        jr z, .end                              ; branch if so
-;        call showA
-
-        ; ycolScore will have been updated
-        ; get this score and add it to colScore
-;        ld a, (ix +0)
-;        add a, a
-;        ld iy, ycolScore
-;        ld e, (iy +0)
-;        ld d, (iy +1)
-        ld de, 10000                            ; set DE with a large score - we probably want to do this move
-        ld iy, colScore                         ; point to AI colscore table
-        call updateColScore                     ; update score
-
-.end
         call restoreFromSnapA
         ret
 
@@ -336,8 +316,9 @@ evaluateColumnWeights:
         ld d, 0
         ld e, (hl)                              ; get weight in DE
 
-        ld iy, colScore
-        call updateColScore                     ; (IY) = (IY) +/- DE
+        ld hl, (columnScoreValue)
+        add hl, de
+        ld (columnScoreValue), hl
 
         ret
 

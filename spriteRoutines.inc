@@ -16,7 +16,7 @@ getYPixel:
 
 getXPixel:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   return sprite X pixel position for a given col value (1-7)
+; Purpose :   return sprite X pixel position for a given col value (0-6)
 ; Input   :   A = col value
 ; Output  :   A = X pixel value
 ; Updates :   none
@@ -24,7 +24,6 @@ getXPixel:
         push de
         ld de, XPixelLookup
         add de, a
-;        dec de
         ld a, (de)
         pop de
         ret
@@ -111,13 +110,12 @@ scoreYellowPosition:
         ; calculate offset to lookup table
         ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
         ld hl, yellowLUT                        ; point to base of table
-        call readLUT
+        call readLUT                            ; determine LUT score to use in DE
 
-        push iy
-        ld iy, ycolScore
-        call updateColScore                     ; apply delta to overall column score
-        pop iy
-
+        ld hl, (columnScoreValue)               ; get current score value
+        add hl, de                              ; add in LUT value
+        ld (columnScoreValue), hl               ; save back
+        
 .end:
         ld a, b                                 ; return with lineScore (+4 indicates a win)
         ret
@@ -152,12 +150,11 @@ scoreRedPosition:
         ; calculate offset to lookup table
         ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
         ld hl, redLUT                           ; point to base of table
-        call readLUT
+        call readLUT                            ; determine LUT score to use in DE
 
-        push iy
-        ld iy, colScore
-        call updateColScore                     ; apply delta to overall column score
-        pop iy
+        ld hl, (columnScoreValue)               ; get current column score value
+        add hl, de                              ; add in LUT value
+        ld (columnScoreValue), hl               ; save back
 
 .end:
         ld a, b                                 ; return with lineScore (+4 indicates a win)

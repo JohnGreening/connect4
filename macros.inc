@@ -16,13 +16,3 @@
         ld a, soundlabel
         call playsound
     ENDM
-
-
-
-    macro call_preserve_IX routine
-        push ix
-
-        call routine
-
-        pop ix
-    ENDM
