@@ -43,6 +43,9 @@ setSlotValue:
         push hl
         push bc
 
+        ld hl, 0
+        ld (boardScore), hl
+        
         ld iy, cellWinLines                     ; point to base of cellWinLines
         ld d, a                                 ; 
         ld e, 14                                ; each line is 14 bytes for each BI
@@ -117,9 +120,9 @@ scoreYellowPosition:
         ld hl, yellowLUT                        ; point to base of table
         call readLUT                            ; determine LUT score to use in DE
 
-      ;  ld hl, (columnScoreValue)               ; get current score value
-      ;  add hl, de                              ; add in LUT value
-      ;  ld (columnScoreValue), hl               ; save back
+        ld hl, (boardScore)                     ; get current score value
+        add hl, de                              ; add in this winlines score
+        ld (boardScore), hl                     ; otherwise store higher value
         
 .end:
         ld a, b                                 ; return with lineScore (+4 indicates a win)
@@ -157,9 +160,9 @@ scoreRedPosition:
         ld hl, redLUT                           ; point to base of table
         call readLUT                            ; determine LUT score to use in DE
 
-        ld hl, (columnScoreValue)               ; get current column score value
-        add hl, de                              ; add in LUT value
-        ld (columnScoreValue), hl               ; save back
+        ld hl, (boardScore)                     ; get current score value
+        add hl, de                              ; add in this winlines score
+        ld (boardScore), hl                     ; otherwise store higher value
 
 .end:
         ld a, b                                 ; return with lineScore (+4 indicates a win)
@@ -253,7 +256,6 @@ div7:
         jr div7
 div7Done:
         ld e, a
- ;       inc e
         ld d, b
         inc d
         pop bc

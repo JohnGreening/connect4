@@ -21,8 +21,9 @@ originalSnapshot defs boardStateLen, 0
 snapA            defs boardStateLen, 0
 snapB            defs boardStateLen, 0
 
-columnScoreValue dw 0000
-yellowScoreValue dw 0000
+redScore    dw 0000
+yellowScore dw 0000
+boardScore  dw 0000
 
 copyWhoseGo     db 0
 
@@ -134,10 +135,7 @@ updateColScore:
         ld iy, colScore                         ; set base of column score array
         add iy, bc                              ; add to base colScore/yColScore
 
-        ld   l, (iy +0)                         ; get current low byte
-        ld   h, (iy +1)                         ; get current high byte 
-        ld de, (columnScoreValue)               ; get the value to update
-        add  hl, de                             
+        ld hl, (redScore)                       ; get the value to update
         ld   (iy +0), l                         ; store back low
         ld   (iy +1), h                         ; store back high
 
@@ -205,12 +203,6 @@ pickBestAIMove:
         jr   .loop
 
 .done:
-        ; return highest value found
-;        ld   e, c
-;        ld   a, b
-;        xor  080h
-;        ld   d, a              ; DE = max (signed)
-
         ld   a, e                               ; return index
 
         ret
@@ -232,7 +224,7 @@ DoAIMove:
         ld ix, columns                          ; point to columns data, i.e. how many chips in each column
 .loop:
         ld hl, 0                                ; default this column score to 0
-        ld (columnScoreValue), HL               ; set it
+        ld (redScore), HL                       ; set it
 
         ld a, (ix +1)                           ; get chip count in column
         cp 255                                  ; check end of columns marker
@@ -247,10 +239,11 @@ DoAIMove:
         call evaluateColumnWeights
 
 .nextCol:
-        ld hl, (columnScoreValue)
-        ld de, (yellowScoreValue)
+        or a
+        ld hl, (redScore)
+        ld de, (yellowScore)
         sbc hl, de
-        ld (columnScoreValue), hl
+        ld (redScore), hl
         
         call updateColScore
         inc ix                                  ; advance over board number
@@ -260,10 +253,9 @@ DoAIMove:
 ; all 7 columns have been evaluated
 ; now pick the best one and return
 .end
-        call debugs
+;        call debugs
         ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; return A as the best index from the scores
-;        call showA
 
 ; set ix to point to the column selected
         add a, a                                ; columns is 2 bytes per column, so double A
@@ -281,6 +273,9 @@ evaluateImmediateThreat:
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
  
+        ;ld hl, 0
+        ;ld (yellowScoreValue), hl
+
         inc (ix +1)                             ; increase chip count for the column
         ld a, yellowGo                          ; simulate a yellow chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
@@ -289,9 +284,10 @@ evaluateImmediateThreat:
 
         ; for immediate threat only, we add yellow LUT score to columnScoreValue
         ; i.e. 10,000 yellow win score would be detected and seen as a good move for red !
-        ld hl, (columnScoreValue)               ; get current score value
-        add hl, de                              ; add in LUT value
-        ld (columnScoreValue), hl               ; save back
+        ld hl, (redScore)                       ; get current score value
+        ld de, (boardScore)                     ; get the board score
+        add hl, de                              ; add it in
+        ld (redScore), hl                       ; save back
 
         call restoreFromSnapA
         ret
@@ -330,9 +326,9 @@ evaluateColumnWeights:
         ld d, 0
         ld e, (hl)                              ; get weight in DE
 
-        ld hl, (columnScoreValue)
+        ld hl, (redScore)
         add hl, de
-        ld (columnScoreValue), hl
+        ld (redScore), hl
 
         ret
 
@@ -345,7 +341,7 @@ subsequentYellow:
 
         ld ix, columns
         ld hl, 0
-        ld (yellowScoreValue), hl
+        ld (yellowScore), hl
 .loop:
         ld a, (ix +1)
         cp 255
@@ -383,10 +379,12 @@ simulateYellow:
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
-        ld hl, (yellowScoreValue)
+        or a
+        ld hl, (yellowScore)
+        ld de, (boardScore)
         sbc hl, de
         jr nc, .end
-        ld (yellowScoreValue), DE
+        ld (yellowScore), de
 .end
         call restoreFromSnapB
 
@@ -408,6 +406,11 @@ simulateRed:
         ; calculate row/column and hence BI (0..41)
         call calculateBoardIndex                ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
+
+        ld hl, (redScore)                       ; get current score value
+        ld de, (boardScore)                     ; get the board score
+        add hl, de                              ; add it in
+        ld (redScore), hl                       ; save back
 
  ;       call restoreFromSnapA
         ret
