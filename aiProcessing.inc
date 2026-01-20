@@ -14,7 +14,6 @@ yellowLUT   defw 0, 0,  0,    0,     0
 
 colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
 colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
-ycolScore   defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
 
 ; originl board state and working snapshots for AI processing
 ; copies of columns(), lineScore(), lineCount()
