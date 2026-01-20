@@ -22,6 +22,7 @@ snapA            defs boardStateLen, 0
 snapB            defs boardStateLen, 0
 
 columnScoreValue dw 0000
+yellowScoreValue dw 0000
 
 copyWhoseGo     db 0
 
@@ -246,6 +247,11 @@ DoAIMove:
         call evaluateColumnWeights
 
 .nextCol:
+        ld hl, (columnScoreValue)
+        ld de, (yellowScoreValue)
+        sbc hl, de
+        ld (columnScoreValue), hl
+        
         call updateColScore
         inc ix                                  ; advance over board number
         inc ix                                  ; advance over chip count
@@ -280,6 +286,12 @@ evaluateImmediateThreat:
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
+
+        ; for immediate threat only, we add yellow LUT score to columnScoreValue
+        ; i.e. 10,000 yellow win score would be detected and seen as a good move for red !
+        ld hl, (columnScoreValue)               ; get current score value
+        add hl, de                              ; add in LUT value
+        ld (columnScoreValue), hl               ; save back
 
         call restoreFromSnapA
         ret
@@ -332,6 +344,8 @@ subsequentYellow:
         push ix
 
         ld ix, columns
+        ld hl, 0
+        ld (yellowScoreValue), hl
 .loop:
         ld a, (ix +1)
         cp 255
@@ -369,6 +383,11 @@ simulateYellow:
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
+        ld hl, (yellowScoreValue)
+        sbc hl, de
+        jr nc, .end
+        ld (yellowScoreValue), DE
+.end
         call restoreFromSnapB
 
         ret

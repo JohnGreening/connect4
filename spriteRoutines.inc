@@ -117,9 +117,9 @@ scoreYellowPosition:
         ld hl, yellowLUT                        ; point to base of table
         call readLUT                            ; determine LUT score to use in DE
 
-        ld hl, (columnScoreValue)               ; get current score value
-        add hl, de                              ; add in LUT value
-        ld (columnScoreValue), hl               ; save back
+      ;  ld hl, (columnScoreValue)               ; get current score value
+      ;  add hl, de                              ; add in LUT value
+      ;  ld (columnScoreValue), hl               ; save back
         
 .end:
         ld a, b                                 ; return with lineScore (+4 indicates a win)
