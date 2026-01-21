@@ -18,49 +18,57 @@ MAINPROG
         call convertChars                       ; convert some tiles to chars
         call initCellWinLines                   ; create cellWinLines table
 
+        ld a, redChip                           ; yellowChip = 0, redChip = 4
+        ld (startGo), a                         ; default red to go first, but actually we reverse this below
+
 ; initialisation for each game
 newGame:
         call tileMapOnTop                       ; ensure tileMap priority in display
         CALL displayBoard                       ; show the Connect 4 board
         call initialiseBoard                    ; set columns(), lineScore(), lineCount() to 0
-        ld ix, columns
-        displayText txtTitle
-        displayText txtInstruction1
+;        ld ix, columns
+        displayText txtTitle                    ; dispplay the "Connect 4" title
+        displayText txtInstruction1             ; display the navigation keys to use
+
+        ld a, (startGo)                         ; get chip used to start last time (or initialisation)
+        xor 4                                   ; swap yellow/red around
+        ld (startGo), a                         ; save it back
+        inc a                                   ; convert to whose go next
+        ld (whoseGo), a                         ; and save it
 
 ; main game loop
 MainLoop:
-;        call newGo
         ld ix, columns                          ; point IX to columns data
+        ld hl, 0                                ; set counter count to 0
+        ld b, 7                                 ; loop for 7 columns
+.drawLoop
+        ld a, (ix +columnCnt)                   ; get the counter count for this column
+        add hl, a                               ; add to the running total
+        inc ix                                  ; point to next column
+        djnz .drawLoop                          ; loop if there are more columns
+        ld a, l                                 ; get the counter running total
+        cp 42                                   ; is the board full
+        jp z, gameDraw                          ; jump if so, no move is possible
 
+        ld ix, columns                          ; point IX to columns data
         ld a, 0                                 ; reset the sprite index
         ld (spriteIndex), a
         
-        ld a, (chipPattern)                     ; get the last chip pattern used (0= yellow, 4= red)
-        xor 4                                   ; reverse it for next player
-        ld (chipPattern), a                     ; save it
-
-
-; *** not sure why we don't just use existing 0/4 here ?
-        inc a                                   ; A is now 1 or 5
-        ld (whoseGo), a                         ; save whose go it is
-
-        call positionChip
- 
 ;       wait until space bar is NOT being pressed
 ;       otherwise might take as a go when user not ready
         call chkSpaceNotPressed
+        ld a, (whoseGo)                         ; get whose go it is
+        cp yellowGo                             ; is it yellow - player
+        jp z, playerYellow                      ; branch if so
+        jp playerRed                            ; otherwise branch to AI
 
-        ld a, (whoseGo)
-        cp redGo
-        jr z, AIMove
-        jr playerMove
+playerRed:
+        call DoAIMove                           ; red is the AI player, do that processing
+        jp dropChip                             ; drop chip selected by AI
 
-AIMove:
-        call DoAIMove
-        jp dropChip
+playerYellow:
+        call positionChip                       ; position chip initially
 
-playerMove:
-        ld iy, colScore
 checkKeys:
         readKey $dffe, %00000001                ; check if "P" is pressed
         call z, keyRight                        ; move chip if allowed
@@ -69,25 +77,14 @@ checkKeys:
         call z, keyLeft                         ; move chip if allowed
 
         readKey $7ffe, %00000001                ; check if [space] pressed
-        jp z, keyEnter                          ; branch if pressed
+        jp z, keySpace                          ; branch if pressed
 
-        readKey $fefe, %00000100                ; check if "X" pressed
-        JR NZ, checkKeys                        ; branch if not
-
-        ; if X is pressed we exit the program here
-        CALL endProg                            ; tidy up sprites and turn off sound
-        IM 1                                    ; restore im 1
-        NEXTREG $7, 0                           ; set speed to 3.5mhz
-        RET
-
+        jr checkKeys
 
 keyRight:
-;---------------------------------------------------------------------------------------------------------------
-; Purpose   :   move the chip one column to the right, if allowed
-;---------------------------------------------------------------------------------------------------------------
         call keyPause                           ; delay processing
 
-        LD A, (ix +0)                           ; get current column
+        LD A, (ix +columnNo)                    ; get current column
         CP 6                                    ; are we at far RHS column already?
         ret z                                   ; return if so, no action
 
@@ -101,7 +98,7 @@ keyRight:
 keyLeft:
         call keyPause                           ; delay processing
 
-        LD A, (ix)                              ; get current column
+        LD A, (ix +columnNo)                    ; get current column
         cp 0                                    ; are we at far LHS column already?
         ret z                                   ; return is so, no action
 
@@ -112,16 +109,16 @@ keyLeft:
 
         ret
 
-keyEnter:
+keySpace:
         call keyPause
-        ld a, (ix +1)                           ; get chip count in column selected
+        ld a, (ix +columnCnt)                   ; get chip count in column selected
         cp 6                                    ; are we full?
         jp z, checkKeys                         ; return if move invalid
 
 dropChip:
-        ld a, (ix +1)                           ; get chip count in column selected
+        ld a, (ix +columnCnt)                   ; get chip count in column selected
         inc a                                   ; add the new chip
-        ld (ix +1), a                           ; and store in columns
+        ld (ix +columnCnt), a                   ; and store in columns
 
         ld b, a                                 ; get ready to calculate the row selected
         ld a, 7                                 ; the row is 7 - chips in column                             
@@ -130,17 +127,26 @@ dropChip:
         ld a, (ix +0)                           ; get the column selected
         ld (columnSelected), a                  ; and store that
 
-        playSoundEffect soundDrop
-        call movechipDown
+        playSoundEffect soundDrop               ; play a drop sound
+        call movechipDown                       ; move sprite down until it hits bottom of column
 
         call calculateBoardIndex                ; return BI (boardindex 0-41) for "selected" row/column
         call setSlotValue                       ; calculate the "board value" and hence did we win !
         cp 255                                  ; 255 means no winner
-        jr nz, winDetected                      ; branch if not 255, winner detected !
-        jp MainLoop                             ; otherwise jump for next go
+        jr nz, gameWin                          ; branch if not 255, winner detected !
+        jp nextGo                               ; otherwise jump for next go
 
-winDetected:
-        call winnerDisplay
+gameDraw
+        displayText txtDraw1                    ; display that it's a draw
+        displayText txtWinner2                  ; display "press N for a new game"
+        jr readyNextGame                        ; play end game sound and wait for N key
+
+gameWin
+        call winnerDisplay                      ; display the winning row (one of them anyway)
+        displayText txtWinner1                  ; display "winner found"
+        displayText txtWinner2                  ; display "press N for a new game"
+
+readyNextGame
         playSoundEffect soundTada1
         halt 
         halt 
@@ -153,13 +159,18 @@ winDetected:
         halt 
         halt
         playSoundEffect soundTada3
-        displayText txtWinner1
-        displayText txtWinner2
 .loop:
         readKey $7ffe, %00001000                ; see if "N" is pressed
         jr nz, .loop                            ; loop if not
         jp newGame                              ; jump if pressed
 
+nextGo
+        ld a, (whoseGo)                         ; whose go was it 1=yellow, 5=red
+        dec a                                   ; 0=yellow, 4=red
+        xor 4                                   ; swap to other player
+        inc a                                   ; whoseGo needs 1/5
+        ld (whoseGo), a                         ; set it
+        jp MainLoop                             ; branch for next go
 
 setupIM2:
 ; sub routine to set-up IM2 to point to BB

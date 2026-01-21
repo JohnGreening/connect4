@@ -6,6 +6,7 @@ chipPattern     db 4                            ; the sprite pattern to be used 
 columnSelected  db 1                            ; holds last column 0 - 6
 rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)
 whoseGo         db 0                            ; last board value used 1 or 5
+startGo         db 0                            ; the player who will start next game first
 winLine         db 0                            ; holds last win line where detected or 255
 
 
@@ -22,7 +23,8 @@ lineScore       defs 69, 0                      ; for each win line, a score (ea
 lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
 boardEnd        db 0
 boardStateLen   equ boardEnd - columns
-
+columnNo        equ 0                           ; IX +columnNo  = column number 0-6
+columnCnt       equ 1                           ; IX +columnCnt = count of counters in that column 0-6
 
 ; sprite patterns
 yellowChip      equ 0                           ; sprites 0 - 3

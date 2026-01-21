@@ -292,7 +292,8 @@ drawTilechip:
         add de, tileMapData                     ; add to tilemap base
 
         ld b, yellowTile                        ; assume yellow chip
-        ld a, (chipPattern)
+        ld a, (whoseGo)
+        dec a
         cp yellowChip
         jr z, .replaceSprite
         ld b, redTile                           ; ok, its a red chip
@@ -405,7 +406,8 @@ displaychip:
         LD A, L                                 ; get sprite Y lsb
         NEXTREG $36, A                          ; set attr byte 1 of port $0057
 
-        LD A, (chipPattern)                     ; get pattern index to use
+        LD A, (whoseGo)                         ; get whose go it is yellow=1, red=5
+        dec a                                   ; -1 to get yellowChip = 0, redChip = 4
         LD B, A
         OR %11000000                            ;
 ;        OR %10000000                           ;

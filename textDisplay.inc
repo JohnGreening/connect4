@@ -264,3 +264,4 @@ txtTitle        db 0, 4, "C O N N E C T  4", 255
 txtInstruction1 db 1, 4, "O: Left   P: Right   space: Drop!", 255
 txtWinner1      db 3, 4, "we have a winner !!!", 255
 txtWinner2      db 4, 4, "press N for a new game", 255
+txtDraw1        db 3, 4, "it is a draw !!", 255
