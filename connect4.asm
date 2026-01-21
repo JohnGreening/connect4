@@ -26,7 +26,6 @@ newGame:
         call tileMapOnTop                       ; ensure tileMap priority in display
         CALL displayBoard                       ; show the Connect 4 board
         call initialiseBoard                    ; set columns(), lineScore(), lineCount() to 0
-;        ld ix, columns
         displayText txtTitle                    ; dispplay the "Connect 4" title
         displayText txtInstruction1             ; display the navigation keys to use
 
@@ -124,7 +123,7 @@ dropChip:
         ld a, 7                                 ; the row is 7 - chips in column                             
         sub b                                   ; get the row
         ld (rowSelected), a                     ; store the row impacted (1-6, 0 is when choosing column)
-        ld a, (ix +0)                           ; get the column selected
+        ld a, (ix +columnNo)                    ; get the column selected
         ld (columnSelected), a                  ; and store that
 
         playSoundEffect soundDrop               ; play a drop sound

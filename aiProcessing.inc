@@ -44,7 +44,7 @@ copyOriginalBoardState:
         ld a, (whoseGo)
         ld (copyWhoseGo), a
         
-        ; initialise all column scores 0..6
+        ; initialise all column scores 0..6 to -32767
         ld iy, colScore
         ld b, 7
         ld de, initialScore
@@ -128,7 +128,7 @@ updateColScore:
         push hl
         push de
 
-        ld a, (ix +0)                           ; current column 0..6
+        ld a, (ix +columnNo)                    ; current column 0..6
         add a, a                                ; x 2 since scores are 2 bytes
         ld b, 0                                 ; default b
         ld c, a                                 ; offset in c
@@ -226,7 +226,7 @@ DoAIMove:
         ld hl, 0                                ; default this column score to 0
         ld (redScore), HL                       ; set it
 
-        ld a, (ix +1)                           ; get chip count in column
+        ld a, (ix +columnCnt)                   ; get chip count in column
         cp 255                                  ; check end of columns marker
         jr z, .end                              ; branch if finished
         cp 6                                    ; is it full

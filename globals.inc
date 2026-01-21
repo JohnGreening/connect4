@@ -1,7 +1,6 @@
 spriteIndex     db 0                            ; the sprite index, normally 0, but can be >0 when winner displayed
 chipX           defw 36                         ; X coord of sprite to be displayed
 chipY           defw 24                         ; Y coord of sprite to be displayed
-chipPattern     db 4                            ; the sprite pattern to be used (yellowChip or redChip)
 
 columnSelected  db 1                            ; holds last column 0 - 6
 rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)

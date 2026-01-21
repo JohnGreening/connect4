@@ -5,7 +5,6 @@ getYPixel:
 ; Purpose :   return sprite Y pixel position for a given row value (1-6, 0 when choosing column)
 ; Input   :   A = row value
 ; Output  :   A = Y pixel value
-; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
         push de
         ld de, YPixelLookup
@@ -19,7 +18,6 @@ getXPixel:
 ; Purpose :   return sprite X pixel position for a given col value (0-6)
 ; Input   :   A = col value
 ; Output  :   A = X pixel value
-; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
         push de
         ld de, XPixelLookup
@@ -36,13 +34,8 @@ setSlotValue:
 ;             - value the board iro that player
 ; Input   :   A = board index BI (0..41)
 ; Output  :   A = win line if win detected, otherwise 255
-; Updates :   lineScore()
-;             lineCount()
 ;----------------------------------------------------------------------------------------------------------------
         ; return the list of win lines that contain this chip (passed as BI 0..41)      
-        push hl
-        push bc
-
         ld hl, 0
         ld (boardScore), hl
         
@@ -87,8 +80,6 @@ setSlotValue:
         jr .loop                                ; otherwise check next winline
 .end:        
         ld a, (winLine)                         ; return with any winline
-        pop bc
-        pop hl
         ret
 
 scoreYellowPosition:
@@ -97,9 +88,6 @@ scoreYellowPosition:
 ;             value the line according to yellow's LUT
 ; Input   :   HL = lineScore(winline)
 ; Output  :   A = updated lineScore(winline)
-; Updates :   lineScore()
-;             lineCount()
-;             ycolScore()
 ;----------------------------------------------------------------------------------------------------------------       
         ; update lineScore(?) and lineCount(?)
         inc (hl)                                ; update lineScore(). +1 for yellow
@@ -134,8 +122,6 @@ scoreRedPosition:
 ;             value the line according to Red's LUT
 ; Input   :   HL = lineScore(winline)
 ; Output  :   A = updated lineScore(winline)
-; Updates :   lineScore()
-;             lineCount()
 ;----------------------------------------------------------------------------------------------------------------
         ; update lineScore(?) and lineCount(?)
         dec (hl)                                ; update lineScore(). -1 for red
@@ -341,7 +327,7 @@ drawTilechip:
 ; Position and show chip given selected column
 ;
 positionChip:
-        LD A, (ix +0)                           ; lookup selected column (0-6) from columns
+        LD A, (ix +columnNo)                    ; lookup selected column (0-6) from columns
         call getXPixel                          ; lookup X pixel coord for this column
 
         ld h, 0                                 ; set X coord high byte
@@ -542,6 +528,7 @@ l2:	ld a, (ix)                              ; get one of the winning line values
 l3:	pop bc                                  ; done, so restore BI, WL
 	pop ix                                  ; and the current winning line
 	ret                                     ; and return
+    
 foundIndex:	
 	ld a, c                                 ; get the win line index
 	ld (iy), a                              ; save the win line index in cellWinLines
@@ -550,13 +537,13 @@ foundIndex:
 			
 	
 initCellWinLineRows:
-	ld bc, 42*14
-	ld hl, cellWinLines
-.loop:	ld a, 255
-	ld (hl), a
-	inc hl
-	dec bc 
-	ld a, b
+	ld bc, 42*14                            ; any position (0-41) can exist in up to 13 win lines (add 1 extra, 14, for end marker)
+	ld hl, cellWinLines                     ; point to cellWinlines table
+.loop:	ld a, 255                           ; we will initially set everything to 255 end marker
+	ld (hl), a                              ; set to default 255 end marker
+	inc hl                                  ; point to next item in table
+	dec bc                                  ; decrease count
+	ld a, b                                 ; test for BC=0
 	or c
-	jr nz, .loop
-	ret
+	jr nz, .loop                            ; loop if not zero
+	ret                                     ; ... otherwise return
