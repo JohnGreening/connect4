@@ -216,8 +216,7 @@ DoAIMove:
 ;  - evaluate board position
 ;  - pick best column
 ;
-;  on return from here, we jump to keyEnter and so need ...
-;  - IX pointing to the column selected
+;  on return from here IX must point to column selected
 ;----------------------------------------------------------------------------------------------------------
         call copyOriginalBoardState             ; back-up columns, lineScore, lineCount
  
@@ -235,7 +234,10 @@ DoAIMove:
         ; check for an immediate yellow win
         call evaluateImmediateThreat
 
+        ; place red and all possible yellow replies
         call evaluateRedYellow1Ply
+
+        ; just evaluate for centre preferred
         call evaluateColumnWeights
 
 .nextCol:
@@ -273,11 +275,8 @@ evaluateImmediateThreat:
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
  
-        ;ld hl, 0
-        ;ld (yellowScoreValue), hl
-
         inc (ix +1)                             ; increase chip count for the column
-        ld a, yellowGo                          ; simulate a yellow chip
+        ld a, yellowChip                        ; simulate a player (yellow) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
@@ -295,12 +294,7 @@ evaluateImmediateThreat:
 
 evaluateRedYellow1Ply:
 ;---------------------------------------------------------------------------------------------------------------
-; Purpose :   place a Red chip and evaluate
-; Input   :   C  - column being evaluated
-;             A  - chip count currently in that column
-;             HL - columns(c)
-; Output  :   A  - winLine if win, otherwise 255
-; Updates :   
+; Purpose :   place a Red chip and then all possible Yellow replies and evaluate
 ;---------------------------------------------------------------------------------------------------------------
 
         call createSnapA
@@ -315,9 +309,6 @@ evaluateRedYellow1Ply:
 evaluateColumnWeights:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   If nothing else to go on, favour the centre columns
-; Input   :   
-; Output  :   
-; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
         ld hl, colWeights                       ; point to weights array
         ld a, (ix +0)                           ; column to be evaluated
@@ -352,8 +343,6 @@ subsequentYellow:
 
         call simulateYellow
 .nextCol:
-      ;  inc c                                   ; advance to next column
-      ;  djnz .loop                              ; loop for all 7 columns
         inc ix
         inc ix
         jr .loop
@@ -365,16 +354,11 @@ subsequentYellow:
 simulateYellow:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   place a yellow chip and evaluate
-; Input   :   C - column being evaluated
-;             HL - columns(c)
-; Output  :   A  - = winLine if win, otherwise 255
-;             DE - score adjustment to apply
-; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapB                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         inc (ix +1)                             ; increase chip count for the column
-        ld a, yellowGo                          ; simulate a yellow chip
+        ld a, yellowChip                        ; simulate a player (yellow) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
@@ -393,14 +377,9 @@ simulateYellow:
 simulateRed:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   place a red chip and evaluate
-; Input   :   C - column being evaluated
-;             HL - columns(c)
-; Updates :   
 ;---------------------------------------------------------------------------------------------------------------
-;        call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
-
         inc (ix +1)                             ; increase chip count for the column
-        ld a, redGo                             ; simulate an AI (red) chip
+        ld a, redChip                           ; simulate a AI (red) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
 
         ; calculate row/column and hence BI (0..41)
@@ -412,5 +391,4 @@ simulateRed:
         add hl, de                              ; add it in
         ld (redScore), hl                       ; save back
 
- ;       call restoreFromSnapA
         ret

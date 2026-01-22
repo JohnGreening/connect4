@@ -4,24 +4,28 @@ chipY           defw 24                         ; Y coord of sprite to be displa
 
 columnSelected  db 1                            ; holds last column 0 - 6
 rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)
-whoseGo         db 0                            ; last board value used 1 or 5
+whoseGo         db 0                            ; whose go it is, 0=yellow, 4=red
 startGo         db 0                            ; the player who will start next game first
 winLine         db 0                            ; holds last win line where detected or 255
 
 
 ; the connect 4 board data
-columns         db   0, 0                       ; column index, chip count
+columns         db   0, 0                       ; column index or number, chip count in that column
                 db   1, 0
                 db   2, 0
                 db   3, 0
                 db   4, 0
                 db   5, 0
                 db   6, 0
-                db   255, 0                     ; this is the quit row
+                db   255, 255                   ; this is the quit row
+
+; for each of the 69 win lines possible
 lineScore       defs 69, 0                      ; for each win line, a score (each yellow +1, each red -1, +4/-4 = win)
 lineCount       defs 69, 0                      ; for each win line, a tally of chips in that line
 boardEnd        db 0
 boardStateLen   equ boardEnd - columns
+
+; constant to document the IX +? data we are dealing with
 columnNo        equ 0                           ; IX +columnNo  = column number 0-6
 columnCnt       equ 1                           ; IX +columnCnt = count of counters in that column 0-6
 
@@ -33,9 +37,6 @@ redChip         equ 4                           ; sprites 4 - 7
 yellowTile      equ 1                           ; tiles 1 - 9
 redTile         equ 24                          ; tiles 24 - 32
 
-; board array values
-yellowGo        equ yellowChip +1
-redGo           equ redChip +1
 
 INCLUDE "lookupTables.inc"
 

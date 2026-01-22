@@ -32,8 +32,7 @@ newGame:
         ld a, (startGo)                         ; get chip used to start last time (or initialisation)
         xor 4                                   ; swap yellow/red around
         ld (startGo), a                         ; save it back
-        inc a                                   ; convert to whose go next
-        ld (whoseGo), a                         ; and save it
+        ld (whoseGo), a                         ; save next player move
 
 ; main game loop
 MainLoop:
@@ -56,8 +55,9 @@ MainLoop:
 ;       wait until space bar is NOT being pressed
 ;       otherwise might take as a go when user not ready
         call chkSpaceNotPressed
+
         ld a, (whoseGo)                         ; get whose go it is
-        cp yellowGo                             ; is it yellow - player
+        cp yellowChip                           ; is it yellow - player
         jp z, playerYellow                      ; branch if so
         jp playerRed                            ; otherwise branch to AI
 
@@ -164,10 +164,8 @@ readyNextGame
         jp newGame                              ; jump if pressed
 
 nextGo
-        ld a, (whoseGo)                         ; whose go was it 1=yellow, 5=red
-        dec a                                   ; 0=yellow, 4=red
+        ld a, (whoseGo)                         ; whose go was it 0=yellow, 4=red
         xor 4                                   ; swap to other player
-        inc a                                   ; whoseGo needs 1/5
         ld (whoseGo), a                         ; set it
         jp MainLoop                             ; branch for next go
 
