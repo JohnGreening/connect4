@@ -1,33 +1,5 @@
 device ZXSPECTRUMNEXT
 
-redLUT      defw 0, 0,  0,    0,     0
-            defw 0, 6,  0,    0,     0
-            defw 0, 0, 70,    0,     0
-            defw 0, 0,  0, 1400,     0
-            defw 0, 0,  0,    0, 30000
-
-yellowLUT   defw 0, 0,  0,    0,     0
-            defw 0, 5,  0,    0,     0
-            defw 0, 0, 50,    0,     0
-            defw 0, 0,  0, 2000,     0
-            defw 0, 0,  0,    0, 10000
-
-colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
-colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
-
-; originl board state and working snapshots for AI processing
-; copies of columns(), lineScore(), lineCount()
-originalSnapshot defs boardStateLen, 0
-snapA            defs boardStateLen, 0
-snapB            defs boardStateLen, 0
-
-redScore    dw 0000
-yellowScore dw 0000
-boardScore  dw 0000
-
-copyWhoseGo     db 0
-
-initialScore  equ -32767
 
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   backup board state before AI move, i.e. columns, board, lineScore, lineCount

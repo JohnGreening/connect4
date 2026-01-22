@@ -36,6 +36,12 @@ debugs:
         pop af
         ret
 
+debug1
+        push iy
+        ld iy, tileMapData
+        call DispA
+        pop iy
+        ret
 
 DispHL
 ; pass IY with location to display HL
@@ -93,7 +99,7 @@ DispA
         LD H, 0
         LD L, A
         CALL DispA3Digit
-        call keyV
+        call keyC
         pop iy
         POP AF
         POP BC

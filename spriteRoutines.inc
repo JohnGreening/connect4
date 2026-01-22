@@ -38,7 +38,10 @@ setSlotValue:
         ; return the list of win lines that contain this chip (passed as BI 0..41)      
         ld hl, 0
         ld (boardScore), hl
-        
+
+
+        ; cellWinLines is an array 42 x 14 values for each of the 0..41 board indexes passed in A
+        ; the values are the lines (up to 13) that this BI can exist in. List is termined by one or more 255 markers
         ld iy, cellWinLines                     ; point to base of cellWinLines
         ld d, a                                 ; 
         ld e, 14                                ; each line is 14 bytes for each BI
@@ -52,6 +55,7 @@ setSlotValue:
         ld a, (iy)                              ; get one of the win lines this chip is in
         cp 255                                  ; are we at the end of the list
         jr z, .end                              ; branch if so, end of processing for this BI
+
         ld hl, lineScore                        ; point to base of lineScore
         add hl, a                               ; point to lineScore for this winline
 
@@ -72,8 +76,11 @@ setSlotValue:
         ld a, b                                 ; get the saved lineScore
         cp 4                                    ; has anyone won?
         jr nz, .nextWinLine                     ; branch if not
+
         ld a, (iy)                              ; otherwise get the winline
         ld (winLine), a                         ; and store it
+
+        call debug1
 
 .nextWinLine:
         inc iy                                  ; point to next winline        
@@ -93,6 +100,7 @@ scoreYellowPosition:
         inc (hl)                                ; update lineScore(). +1 for yellow
         ld a, (hl)                              ; get the new value
         ld b, a                                 ; save lineScore() in B for LUT
+
         add hl, 69                              ; point to lineCount()
         inc (hl)                                ; add 1 to lineCount()
         ld a, (hl)                              ; get the new value
@@ -160,12 +168,11 @@ readLUT:
 ; Purpose :   Read Look up table (LUT) so that given lineScore & lineCount a strengh value is determined
 ;             red and yellow have different LUT values
 ; Input   :   HL = base of LUT 
-;             B  = lineScore(winline)
-;             C  = lineCount(winline)
-; Output  :   DE = LUT delta to apply to lineScore(column)
-; Updates :   none
+;             B  = lineScore(winline) 0-4 representing count of chips of move being evaluated i.e. red or yellow
+;             C  = lineCount(winline) 0-4 representing total chip count in line, red or yellow
+; Output  :   DE = LUT delta to apply to boardScore
 ;---------------------------------------------------------------------------------------------------------------
-        push bc
+;        push bc
 
         ; calculate offset to lookup table
         ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
@@ -182,7 +189,7 @@ readLUT:
         inc hl                                  ; point to high byte
         ld d, (hl)                              ; look up score adjustment (high byte)
 
-        pop bc
+;        pop bc
         ret
 
 winnerDisplay:
@@ -489,7 +496,6 @@ initCellWinLines:
 ; Output  :   none
 ; Updates :   none
 ;---------------------------------------------------------------------------------------------------------------
-	call initCellWinLineRows                ; initialise 42 line/mask pair values with 255
 	ld iy, cellWinLines                     ; point to this table
 	ld b, 0                                 ; B is the cell board index (BI) to search for
 
@@ -533,15 +539,3 @@ foundIndex:
 	inc iy                                  ; and advance IY for the next winline write
 	jr l3                                   ; jump back, done with this winning line
 			
-	
-initCellWinLineRows:
-	ld bc, 42*14                            ; any position (0-41) can exist in up to 13 win lines (add 1 extra, 14, for end marker)
-	ld hl, cellWinLines                     ; point to cellWinlines table
-.loop:	ld a, 255                           ; we will initially set everything to 255 end marker
-	ld (hl), a                              ; set to default 255 end marker
-	inc hl                                  ; point to next item in table
-	dec bc                                  ; decrease count
-	ld a, b                                 ; test for BC=0
-	or c
-	jr nz, .loop                            ; loop if not zero
-	ret                                     ; ... otherwise return

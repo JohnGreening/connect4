@@ -5,6 +5,7 @@ chipY           defw 24                         ; Y coord of sprite to be displa
 columnSelected  db 1                            ; holds last column 0 - 6
 rowSelected     db 0                            ; holds row used    1 - 6 (0 when selecting column)
 whoseGo         db 0                            ; whose go it is, 0=yellow, 4=red
+copyWhoseGo     db 0                            ; backup of whoseGo when doing AI processing
 startGo         db 0                            ; the player who will start next game first
 winLine         db 0                            ; holds last win line where detected or 255
 
@@ -25,6 +26,33 @@ lineCount       defs 69, 0                      ; for each win line, a tally of 
 boardEnd        db 0
 boardStateLen   equ boardEnd - columns
 
+redLUT      defw 0, 0,  0,    0,     0
+            defw 0, 6,  0,    0,     0
+            defw 0, 0, 70,    0,     0
+            defw 0, 0,  0, 1400,     0
+            defw 0, 0,  0,    0, 30000
+
+yellowLUT   defw 0, 0,  0,    0,     0
+            defw 0, 5,  0,    0,     0
+            defw 0, 0, 50,    0,     0
+            defw 0, 0,  0, 2000,     0
+            defw 0, 0,  0,    0, 10000
+
+colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
+colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
+
+; original board state and working snapshots for AI processing
+; copies of columns(), lineScore(), lineCount()
+originalSnapshot defs boardStateLen, 0
+snapA            defs boardStateLen, 0
+snapB            defs boardStateLen, 0
+
+redScore    dw 0000
+yellowScore dw 0000
+boardScore  dw 0000
+
+initialScore  equ -32767
+
 ; constant to document the IX +? data we are dealing with
 columnNo        equ 0                           ; IX +columnNo  = column number 0-6
 columnCnt       equ 1                           ; IX +columnCnt = count of counters in that column 0-6
@@ -37,6 +65,8 @@ redChip         equ 4                           ; sprites 4 - 7
 yellowTile      equ 1                           ; tiles 1 - 9
 redTile         equ 24                          ; tiles 24 - 32
 
+XPixelLookup    db  36, 68, 100, 132, 164, 196, 228                             ; column is 0..6
+YPixelLookup    db  24, 60, 92, 124, 156, 188, 220                              ; row 0 - 7, where 0 is when placing chip before pressing enter to drop
 
 INCLUDE "lookupTables.inc"
 

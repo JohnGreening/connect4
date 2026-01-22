@@ -1,10 +1,5 @@
-XPixelLookup    db  36, 68, 100, 132, 164, 196, 228                             ; column is 0..6
-YPixelLookup    db  24, 60, 92, 124, 156, 188, 220                              ; row 0 - 7, where 0 is when placing chip before pressing enter to drop
 
-; there are 69 win lines in total for a 7 x 6 board
-winningCombos   equ 69
-
-; this table is 69 rows and details which cells (0..41) are in that win line
+; There are 42 (0..41) board positions
 ; the cells are
 ;    1   2   3   4   5   6   7
 ;    __________________________
@@ -15,6 +10,8 @@ winningCombos   equ 69
 ;5|  28  29  30  31  32  33  34
 ;6|  35  36  37  38  39  40  41
 
+; There are 69 4-in-a-line lines with horizontal, vertical and diagonal 
+; this table details the lines and where board board positions make up that line
 winLines
                 DB 0,1,2,3                      ; win line 0
                 DB 1,2,3,4                      ; win line 1
@@ -90,6 +87,6 @@ winLines
                 DB 38,32,26,20                  ; win line 68
 
 cellWinLines
-; table holding, for each cell (0..41) which winLines it is in
-; a given cell can be in between 3 and 13 win lines, we terminate the row with one or more 255 markers
-    defs 42 * 14, 0
+; a given cell can be in between 3 and 13 winning lines, we terminate the row with one or more 255 markers
+; this table details which lines a board position can be.
+    defs 42 * 14, 255
