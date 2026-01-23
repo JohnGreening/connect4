@@ -34,18 +34,17 @@ initialiseBoard:
         ld b, 7
         ld a, 0
         ld c, 0
-        ld hl, columns
+        ld iy, columns
 .loop1:
-        ld (hl), a
-        inc hl
-        ld (hl), c
-        inc hl
+        ld (iy +columnNo), a
+        ld (iy +columnCnt), c
+        inc iy
+        inc iy
         inc a
         djnz .loop1
         ld a, 255
-        ld (hl), a
-        inc hl
-        ld (hl), a
+        ld (iy +columnNo), a
+        ld (iy +columnCnt), a
         ret
 
 

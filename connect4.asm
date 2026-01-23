@@ -43,7 +43,9 @@ MainLoop:
         ld a, (ix +columnCnt)                   ; get the counter count for this column
         add hl, a                               ; add to the running total
         inc ix                                  ; point to next column
+        inc ix                                  ; point to next column (columns data row is 2 bytes)
         djnz .drawLoop                          ; loop if there are more columns
+
         ld a, l                                 ; get the counter running total
         cp 42                                   ; is the board full
         jp z, gameDraw                          ; jump if so, no move is possible

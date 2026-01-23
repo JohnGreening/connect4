@@ -203,14 +203,14 @@ DoAIMove:
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
+        ; just evaluate for centre preferred
+        call evaluateColumnWeights
+
         ; check for an immediate yellow win
         call evaluateImmediateThreat
 
         ; place red and all possible yellow replies
         call evaluateRedYellow1Ply
-
-        ; just evaluate for centre preferred
-        call evaluateColumnWeights
 
 .nextCol:
         or a
@@ -300,24 +300,24 @@ subsequentYellow:
 ; we score each board position into yellowColsScore
 ; then we pick the biggest value (it'll still be negative) but we assume yellow will pick the best for it, not us
 ; this is then used as a delta for colScore()
-        push ix
+        push ix                                 ; save current column pointer
 
-        ld ix, columns
-        ld hl, 0
-        ld (yellowScore), hl
+        ld ix, columns                          ; we want to simulate yellow response in each of 0..6 on top of red go
+        ld hl, 0                                ; initialise score
+        ld (yellowScore), hl                    ; set it
 .loop:
-        ld a, (ix +1)
-        cp 255
-        jr z, .end
+        ld a, (ix +columnCnt)                   ; get column count 
+        cp 255                                  ; is it the end marker
+        jr z, .end                              ; branch if it is
 
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
-        call simulateYellow
+        call simulateYellow                     ; drop a yellow chip and evaluate
 .nextCol:
-        inc ix
-        inc ix
-        jr .loop
+        inc ix                                  ; advance over row number
+        inc ix                                  ; advance over chip count
+        jr .loop                                ; branch for next column
 .end
         pop ix
         ret
