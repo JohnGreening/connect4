@@ -9,6 +9,7 @@ INCLUDE "soundEffects.inc"
 include "textDisplay.inc"
 include "macros.inc"
 include "aiProcessing.inc"
+include "initialisation.inc"
 
 MAINPROG
 ; this stuff is only called ONCE

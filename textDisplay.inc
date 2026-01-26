@@ -38,10 +38,35 @@ debugs:
 
 debug1
         push iy
-        ld iy, tileMapData
-        call DispA
+        push hl
+        push de
+        ld de, 40 -6
+        ld iy, tileMapData +314
+        ld hl, (redScore)
+        call DispHL
+
+        add iy, de
+        ld hl, (yellowScore)
+        call DispHL
+
+        add iy, de
+        ld hl, (boardScore)
+        call DispHL
+
+        call keyV
+        pop de
+        pop hl
         pop iy
         ret
+
+debug2
+        push iy
+        ld iy, tileMapData
+        call DispA
+        call keyV
+        pop iy
+        ret
+    
 
 DispHL
 ; pass IY with location to display HL

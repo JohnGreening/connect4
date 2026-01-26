@@ -96,6 +96,10 @@ updateColScore:
 ;               IX +0 holds the current column being evaluated
 ;               we add DE to the colScore(current column)                
 ;---------------------------------------------------------------------------------------------------------------
+        ld a, (ix +columnCnt)
+        cp 6
+        jr z, .end
+
         push bc
         push hl
         push de
@@ -107,13 +111,20 @@ updateColScore:
         ld iy, colScore                         ; set base of column score array
         add iy, bc                              ; add to base colScore/yColScore
 
-        ld hl, (redScore)                       ; get the value to update
+
+        ld   l, (iy +0)                         ; store back low
+        ld   h, (iy +1)                         ; store back high
+
+        ld de, (redScore)                       ; get the value to update
+        add hl, de
         ld   (iy +0), l                         ; store back low
         ld   (iy +1), h                         ; store back high
 
         pop de
         pop hl
         pop bc
+
+.end
         ret
 
 
@@ -125,6 +136,7 @@ pickBestAIMove:
 ; Clobbers: A, B, C, D, E, H, L
 ; Tie-break: earlier index (lowest) wins
 ;--------------------------------------------------------------------------------------------------
+
         ; Seed "best" with entry 0 at IY
         ld   c, (iy +0)                         ; best.low
         ld   a, (iy +1)                         ; best.high
@@ -205,20 +217,22 @@ DoAIMove:
 
         ; just evaluate for centre preferred
         call evaluateColumnWeights
+        ld hl, (redScore)
+        add hl, de
+        ld (redScore), hl
 
         ; check for an immediate yellow win
         call evaluateImmediateThreat
+        ld hl, (redScore)                       ; get current score value
+        ld de, (boardScore)                     ; get the board score
+        add hl, de                              ; add it in
+        ld (redScore), hl                       ; save back
 
         ; place red and all possible yellow replies
         call evaluateRedYellow1Ply
 
 .nextCol:
-        or a
-        ld hl, (redScore)
-        ld de, (yellowScore)
-        sbc hl, de
-        ld (redScore), hl
-        
+        call debug1
         call updateColScore
         inc ix                                  ; advance over board number
         inc ix                                  ; advance over chip count
@@ -227,7 +241,7 @@ DoAIMove:
 ; all 7 columns have been evaluated
 ; now pick the best one and return
 .end
-;        call debugs
+        call debugs
         ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; return A as the best index from the scores
 
@@ -244,6 +258,7 @@ DoAIMove:
 evaluateImmediateThreat:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate player (yellow) threat
+;             return in DE the column score
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
  
@@ -253,14 +268,7 @@ evaluateImmediateThreat:
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
-        ; for immediate threat only, we add yellow LUT score to columnScoreValue
-        ; i.e. 10,000 yellow win score would be detected and seen as a good move for red !
-        ld hl, (redScore)                       ; get current score value
-        ld de, (boardScore)                     ; get the board score
-        add hl, de                              ; add it in
-        ld (redScore), hl                       ; save back
-
-        call restoreFromSnapA
+        call restoreFromSnapA                   ; restore board to before this yellow test
         ret
 
 
@@ -272,7 +280,19 @@ evaluateRedYellow1Ply:
         call createSnapA
 
         call simulateRed
+        ld hl, (redScore)                       ; get current score value
+        ld de, (boardScore)                     ; get the board score
+        add hl, de                              ; add it in
+        ld (redScore), hl                       ; save back
+
+        ld hl, 0
+        ld (yellowScore), hl
         call subsequentYellow
+        or a
+        ld hl, (redScore)
+        ld de, (yellowScore)
+        sbc hl, de
+        ld (redScore), hl
 
         call restoreFromSnapA
 
@@ -281,17 +301,15 @@ evaluateRedYellow1Ply:
 evaluateColumnWeights:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   If nothing else to go on, favour the centre columns
+;             return in DE the column weight
 ;---------------------------------------------------------------------------------------------------------------
         ld hl, colWeights                       ; point to weights array
         ld a, (ix +0)                           ; column to be evaluated
+
         add hl, a                               ; add in offset
 
         ld d, 0
         ld e, (hl)                              ; get weight in DE
-
-        ld hl, (redScore)
-        add hl, de
-        ld (redScore), hl
 
         ret
 
@@ -357,10 +375,5 @@ simulateRed:
         ; calculate row/column and hence BI (0..41)
         call calculateBoardIndex                ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
-
-        ld hl, (redScore)                       ; get current score value
-        ld de, (boardScore)                     ; get the board score
-        add hl, de                              ; add it in
-        ld (redScore), hl                       ; save back
 
         ret
