@@ -217,22 +217,25 @@ DoAIMove:
 
         ; just evaluate for centre preferred
         call evaluateColumnWeights
-        ld hl, (redScore)
-        add hl, de
-        ld (redScore), hl
+;        ;call debug1
+;        ld hl, (redScore)
+;        add hl, de
+;        ld (redScore), hl
 
         ; check for an immediate yellow win
         call evaluateImmediateThreat
-        ld hl, (redScore)                       ; get current score value
-        ld de, (boardScore)                     ; get the board score
-        add hl, de                              ; add it in
-        ld (redScore), hl                       ; save back
+;        call debug1
+;        ld hl, (redScore)                       ; get current score value
+;        ld de, (boardScore)                     ; get the board score
+;        break
+;        add hl, de                              ; add it in
+;        ld (redScore), hl                       ; save back
 
         ; place red and all possible yellow replies
         call evaluateRedYellow1Ply
 
 .nextCol:
-        call debug1
+        call debug2
         call updateColScore
         inc ix                                  ; advance over board number
         inc ix                                  ; advance over chip count
@@ -241,7 +244,6 @@ DoAIMove:
 ; all 7 columns have been evaluated
 ; now pick the best one and return
 .end
-        call debugs
         ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; return A as the best index from the scores
 
@@ -268,6 +270,8 @@ evaluateImmediateThreat:
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
+        ld (immediateThreat), de
+
         call restoreFromSnapA                   ; restore board to before this yellow test
         ret
 
@@ -280,19 +284,19 @@ evaluateRedYellow1Ply:
         call createSnapA
 
         call simulateRed
-        ld hl, (redScore)                       ; get current score value
-        ld de, (boardScore)                     ; get the board score
-        add hl, de                              ; add it in
-        ld (redScore), hl                       ; save back
+ ;       ld hl, (redScore)                       ; get current score value
+ ;       ld de, (boardScore)                     ; get the board score
+ ;       add hl, de                              ; add it in
+ ;       ld (redScore), hl                       ; save back
 
         ld hl, 0
         ld (yellowScore), hl
         call subsequentYellow
-        or a
-        ld hl, (redScore)
-        ld de, (yellowScore)
-        sbc hl, de
-        ld (redScore), hl
+ ;       or a
+ ;       ld hl, (redScore)
+ ;       ld de, (yellowScore)
+ ;       sbc hl, de
+ ;       ld (redScore), hl
 
         call restoreFromSnapA
 
@@ -311,6 +315,7 @@ evaluateColumnWeights:
         ld d, 0
         ld e, (hl)                              ; get weight in DE
 
+        ld (columnWeight), de
         ret
 
 subsequentYellow:
@@ -337,6 +342,8 @@ subsequentYellow:
         inc ix                                  ; advance over chip count
         jr .loop                                ; branch for next column
 .end
+        ld de, (yellowScore)
+        ld (bestPlaceYellow), de
         pop ix
         ret
 
@@ -353,6 +360,7 @@ simulateYellow:
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
+        call debug1
         or a
         ld hl, (yellowScore)
         ld de, (boardScore)
@@ -361,7 +369,6 @@ simulateYellow:
         ld (yellowScore), de
 .end
         call restoreFromSnapB
-
         ret
 
 simulateRed:
@@ -376,4 +383,5 @@ simulateRed:
         call calculateBoardIndex                ; calculate BI (needs B=column chip count, C=column)
         call setSlotValue                       ; place on board and evaluate
 
+        ld (placeRed), de
         ret

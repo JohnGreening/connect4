@@ -10,6 +10,11 @@ startGo         db 0                            ; the player who will start next
 winLine         db 0                            ; holds last win line where detected or 255
 
 
+columnWeight    dw 0000
+immediateThreat dw 0000
+placeRed        dw 0000
+bestPlaceYellow dw 0000
+
 ; the connect 4 board data
 columns         db   0, 0                       ; column index or number, chip count in that column
                 db   1, 0

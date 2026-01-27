@@ -40,20 +40,18 @@ debug1
         push iy
         push hl
         push de
-        ld de, 40 -6
-        ld iy, tileMapData +314
-        ld hl, (redScore)
-        call DispHL
-
-        add iy, de
+        push bc
+        ld bc, 40 -6
+        ld iy, tileMapData +334
         ld hl, (yellowScore)
         call DispHL
 
-        add iy, de
+        add iy, bc
         ld hl, (boardScore)
         call DispHL
 
         call keyV
+        pop bc
         pop de
         pop hl
         pop iy
@@ -61,9 +59,30 @@ debug1
 
 debug2
         push iy
-        ld iy, tileMapData
-        call DispA
+        push hl
+        push de
+        push bc
+        ld bc, 40 -6
+        ld iy, tileMapData +314
+        ld hl, (columnWeight)
+        call DispHL
+
+        add iy, bc
+        ld hl, (immediateThreat)
+        call DispHL
+
+        add iy, bc
+        ld hl, (placeRed)
+        call DispHL
+
+        add iy, bc
+        ld hl, (bestPlaceYellow)
+        call DispHL
+        
         call keyV
+        pop bc
+        pop de
+        pop hl
         pop iy
         ret
     

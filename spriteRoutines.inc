@@ -80,8 +80,6 @@ setSlotValue:
         ld a, (iy)                              ; otherwise get the winline
         ld (winLine), a                         ; and store it
 
-        call debug1
-
 .nextWinLine:
         inc iy                                  ; point to next winline        
         jr .loop                                ; otherwise check next winline
