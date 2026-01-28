@@ -96,10 +96,6 @@ updateColScore:
 ;               IX +0 holds the current column being evaluated
 ;               we add DE to the colScore(current column)                
 ;---------------------------------------------------------------------------------------------------------------
-        ld a, (ix +columnCnt)
-        cp 6
-        jr z, .end
-
         push bc
         push hl
         push de
@@ -213,7 +209,7 @@ DoAIMove:
         cp 255                                  ; check end of columns marker
         jr z, .end                              ; branch if finished
         cp 6                                    ; is it full
-        jr z, .nextCol                          ; branch if so
+        jr z, .colFull                          ; branch if so
 
         ; just evaluate for centre preferred
         call evaluateColumnWeights
@@ -235,15 +231,38 @@ DoAIMove:
         call evaluateRedYellow1Ply
 
 .nextCol:
-        call debug2
+        ld hl, 0
+        ld (redScore), hl
+        
+        ld de, (columnWeight)
+        add hl, de
+
+        ld de, (immediateThreat)
+        add hl, de
+        
+        ld de, (placeRed)
+        add hl, de
+        
+        ld de, (bestPlaceYellow)
+        sbc hl, de
+
+        ld (redScore), hl
+
+.updateScore
         call updateColScore
         inc ix                                  ; advance over board number
         inc ix                                  ; advance over chip count
         jr .loop                                ; loop for next column
 
+.colFull
+        ld hl, fullCol
+        ld (redScore), hl
+        jr .updateScore
+
 ; all 7 columns have been evaluated
 ; now pick the best one and return
-.end
+.end   
+        call debugs     
         ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; return A as the best index from the scores
 
@@ -354,13 +373,21 @@ simulateYellow:
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapB                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
-        inc (ix +1)                             ; increase chip count for the column
+        ld a, (ix +columnCnt)
+        inc a
+        ld (ix +columnCnt), a
+
+;        cp 7
+;        jr c, .nocolerror
+;        break
+
+;.nocolerror
         ld a, yellowChip                        ; simulate a player (yellow) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
-        call debug1
+;        call debug1
         or a
         ld hl, (yellowScore)
         ld de, (boardScore)

@@ -3,7 +3,6 @@ playsound:
 ;
 ; routine will choose next available channel and copy sound fx to that channel
 ; IM2 will then process that data
-        RET
         PUSH HL
         PUSH DE
         PUSH BC

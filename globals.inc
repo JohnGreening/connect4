@@ -31,17 +31,28 @@ lineCount       defs 69, 0                      ; for each win line, a tally of 
 boardEnd        db 0
 boardStateLen   equ boardEnd - columns
 
+;redLUT      defw 0, 0,  0,    0,     0
+;            defw 0, 6,  0,    0,     0
+;            defw 0, 0, 70,    0,     0
+;            defw 0, 0,  0, 1400,     0
+;            defw 0, 0,  0,    0, 30000
+;
+;yellowLUT   defw 0, 0,  0,    0,     0
+;            defw 0, 5,  0,    0,     0
+;            defw 0, 0, 50,    0,     0
+;            defw 0, 0,  0, 2000,     0
+;            defw 0, 0,  0,    0, 10000
 redLUT      defw 0, 0,  0,    0,     0
             defw 0, 6,  0,    0,     0
             defw 0, 0, 70,    0,     0
-            defw 0, 0,  0, 1400,     0
-            defw 0, 0,  0,    0, 30000
+            defw 0, 0,  0,  500,     0
+            defw 0, 0,  0,    0,  4000
 
 yellowLUT   defw 0, 0,  0,    0,     0
             defw 0, 5,  0,    0,     0
             defw 0, 0, 50,    0,     0
-            defw 0, 0,  0, 2000,     0
-            defw 0, 0,  0,    0, 10000
+            defw 0, 0,  0,  400,     0
+            defw 0, 0,  0,    0,  1500
 
 colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
 colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
@@ -56,7 +67,8 @@ redScore    dw 0000
 yellowScore dw 0000
 boardScore  dw 0000
 
-initialScore  equ -32767
+fullCol      equ -32767
+initialScore equ 0
 
 ; constant to document the IX +? data we are dealing with
 columnNo        equ 0                           ; IX +columnNo  = column number 0-6
