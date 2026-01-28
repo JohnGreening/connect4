@@ -213,19 +213,9 @@ DoAIMove:
 
         ; just evaluate for centre preferred
         call evaluateColumnWeights
-;        ;call debug1
-;        ld hl, (redScore)
-;        add hl, de
-;        ld (redScore), hl
 
         ; check for an immediate yellow win
         call evaluateImmediateThreat
-;        call debug1
-;        ld hl, (redScore)                       ; get current score value
-;        ld de, (boardScore)                     ; get the board score
-;        break
-;        add hl, de                              ; add it in
-;        ld (redScore), hl                       ; save back
 
         ; place red and all possible yellow replies
         call evaluateRedYellow1Ply
@@ -277,10 +267,7 @@ DoAIMove:
 
 
 evaluateImmediateThreat:
-;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate player (yellow) threat
-;             return in DE the column score
-;---------------------------------------------------------------------------------------------------------------
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
  
         inc (ix +1)                             ; increase chip count for the column
@@ -296,36 +283,19 @@ evaluateImmediateThreat:
 
 
 evaluateRedYellow1Ply:
-;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   place a Red chip and then all possible Yellow replies and evaluate
-;---------------------------------------------------------------------------------------------------------------
 
         call createSnapA
 
         call simulateRed
- ;       ld hl, (redScore)                       ; get current score value
- ;       ld de, (boardScore)                     ; get the board score
- ;       add hl, de                              ; add it in
- ;       ld (redScore), hl                       ; save back
-
-        ld hl, 0
-        ld (yellowScore), hl
         call subsequentYellow
- ;       or a
- ;       ld hl, (redScore)
- ;       ld de, (yellowScore)
- ;       sbc hl, de
- ;       ld (redScore), hl
 
         call restoreFromSnapA
 
         ret
 
 evaluateColumnWeights:
-;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   If nothing else to go on, favour the centre columns
-;             return in DE the column weight
-;---------------------------------------------------------------------------------------------------------------
         ld hl, colWeights                       ; point to weights array
         ld a, (ix +0)                           ; column to be evaluated
 
@@ -339,9 +309,6 @@ evaluateColumnWeights:
 
 subsequentYellow:
 ; here we are simulating yellow in each of the columns 0..6 AFTER placing red chip
-; we score each board position into yellowColsScore
-; then we pick the biggest value (it'll still be negative) but we assume yellow will pick the best for it, not us
-; this is then used as a delta for colScore()
         push ix                                 ; save current column pointer
 
         ld ix, columns                          ; we want to simulate yellow response in each of 0..6 on top of red go
@@ -361,9 +328,10 @@ subsequentYellow:
         inc ix                                  ; advance over chip count
         jr .loop                                ; branch for next column
 .end
-        ld de, (yellowScore)
-        ld (bestPlaceYellow), de
-        pop ix
+        ld de, (yellowScore)                    ; get the best running yellow score
+        ld (bestPlaceYellow), de                ; save it
+
+        pop ix                                  ; restore columns pointer
         ret
 
 
@@ -373,21 +341,13 @@ simulateYellow:
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapB                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
-        ld a, (ix +columnCnt)
-        inc a
-        ld (ix +columnCnt), a
-
-;        cp 7
-;        jr c, .nocolerror
-;        break
-
-;.nocolerror
+        inc (ix +columnCnt)                     ; increase chip count for the column
         ld a, yellowChip                        ; simulate a player (yellow) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
-;        call debug1
+        ; pick the best running yellowScore
         or a
         ld hl, (yellowScore)
         ld de, (boardScore)
@@ -405,9 +365,7 @@ simulateRed:
         inc (ix +1)                             ; increase chip count for the column
         ld a, redChip                           ; simulate a AI (red) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
-
-        ; calculate row/column and hence BI (0..41)
-        call calculateBoardIndex                ; calculate BI (needs B=column chip count, C=column)
+        call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
         ld (placeRed), de
