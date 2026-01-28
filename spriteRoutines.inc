@@ -170,8 +170,6 @@ readLUT:
 ;             C  = lineCount(winline) 0-4 representing total chip count in line, red or yellow
 ; Output  :   DE = LUT delta to apply to boardScore
 ;---------------------------------------------------------------------------------------------------------------
-;        push bc
-
         ; calculate offset to lookup table
         ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
         ld d, c                                 ; return the lineCount(winline) 0..4 chips
@@ -187,7 +185,6 @@ readLUT:
         inc hl                                  ; point to high byte
         ld d, (hl)                              ; look up score adjustment (high byte)
 
-;        pop bc
         ret
 
 winnerDisplay:

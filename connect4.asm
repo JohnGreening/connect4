@@ -19,7 +19,7 @@ MAINPROG
         call convertChars                       ; convert some tiles to chars
         call initCellWinLines                   ; create cellWinLines table
 
-        ld a, redChip                           ; yellowChip = 0, redChip = 4
+        ld a, yellowChip                           ; yellowChip = 0, redChip = 4
         ld (startGo), a                         ; default red to go first, but actually we reverse this below
 
 ; initialisation for each game

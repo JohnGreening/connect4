@@ -213,12 +213,15 @@ DoAIMove:
 
         ; just evaluate for centre preferred
         call evaluateColumnWeights
+    ;    call debug2
 
         ; check for an immediate yellow win
         call evaluateImmediateThreat
+;        call debug2
 
         ; place red and all possible yellow replies
         call evaluateRedYellow1Ply
+     ;   call debug2
 
 .nextCol:
         ld hl, 0
@@ -252,7 +255,6 @@ DoAIMove:
 ; all 7 columns have been evaluated
 ; now pick the best one and return
 .end   
-        call debugs     
         ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; return A as the best index from the scores
 
@@ -368,5 +370,6 @@ simulateRed:
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
+        ld de, (boardScore)
         ld (placeRed), de
         ret
