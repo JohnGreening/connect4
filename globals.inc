@@ -57,6 +57,11 @@ opponentLUT   defw 0, 0,  0,    0,     0
 colWeights  defb 3, 4, 5, 7, 5, 4, 3            ; center preferred column weights
 colScore    defw $0000, $0000, $0000, $0000, $0000, $0000, $0000            ; each column has a 2 byte score
 
+player1Type     db 0
+player2Type     db 0
+goes        db 0
+
+
 ; original board state and working snapshots for AI processing
 ; copies of columns(), lineScore(), lineCount()
 originalSnapshot defs boardStateLen, 0

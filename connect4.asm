@@ -19,8 +19,15 @@ MAINPROG
         call convertChars                       ; convert some tiles to chars
         call initCellWinLines                   ; create cellWinLines table
 
-        ld a, yellowChip                           ; yellowChip = 0, redChip = 4
-        ld (startGo), a                         ; default red to go first, but actually we reverse this below
+        call tileMapOnTop
+        call displayBoard
+        displayText txtTitle
+
+        call player1                            ; get player 1 role (human or computer)
+        call player2                            ; get player 2 role (human or computer)
+
+        ld a, yellowChip                        ; yellowChip = 0, redChip = 4
+        ld (startGo), a                         ; default yellow to go first, but actually we reverse this below
 
 ; initialisation for each game
 newGame:
@@ -34,9 +41,15 @@ newGame:
         xor 4                                   ; swap yellow/red around
         ld (startGo), a                         ; save it back
         ld (whoseGo), a                         ; save next player move
+        ld a, 0
+        ld (goes), a
 
 ; main game loop
 MainLoop:
+        ld a, (goes)
+        inc a
+        ld (goes), a
+
         ld ix, columns                          ; point IX to columns data
         ld hl, 0                                ; set counter count to 0
         ld b, 7                                 ; loop for 7 columns
@@ -58,17 +71,29 @@ MainLoop:
 ;       wait until space bar is NOT being pressed
 ;       otherwise might take as a go when user not ready
         call chkSpaceNotPressed
-        call keyV
+
         ld a, (whoseGo)                         ; get whose go it is
-        cp yellowChip                           ; is it yellow - player
- ;       jp z, playerYellow                      ; branch if so
-        jp playerRed                            ; otherwise branch to AI
+        cp yellowChip                           ; is it yellow
+        jr z, playerYellow                      ; branch if yellow go
+        jr playerRed                            ; otherwise branch to red go 
 
 playerRed:
+        ld a, (player1Type)
+        cp "H"
+        jr z, humanGo
+        jr computerGo
+
+playerYellow:
+        ld a, (player2Type)
+        cp "H"
+        jr z, humanGo
+        jr computerGo
+
+computerGo:
         call DoAIMove                           ; red is the AI player, do that processing
         jp dropChip                             ; drop chip selected by AI
 
-playerYellow:
+humanGo:
         call positionChip                       ; position chip initially
 
 checkKeys:
@@ -118,6 +143,8 @@ keySpace:
         jp z, checkKeys                         ; return if move invalid
 
 dropChip:
+        call killSprites
+        call positionChip
         ld a, (ix +columnCnt)                   ; get chip count in column selected
         inc a                                   ; add the new chip
         ld (ix +columnCnt), a                   ; and store in columns
@@ -171,6 +198,62 @@ nextGo
         xor 4                                   ; swap to other player
         ld (whoseGo), a                         ; set it
         jp MainLoop                             ; branch for next go
+
+
+player1
+        displayText player1Role                 ; show text "player 1 Human or Computer?"
+.loop
+        readKey $bffe, %00010000                ; read "H" key
+        jr z, .human                            ; branch if pressed
+        readKey $fefe, %00001000                ; read "C" key
+        jr z, .computer                         ; branch if pressed
+        jr .loop                                ; otherwise keep looping
+.human
+        readKey $bffe, %00010000                ; read "H" key
+        jr z, .human                            ; branch if still being pressed - wait till released
+
+        ld a, "H"                               ; set player 1 type = human
+        ld (player1Type), a
+        jr .end
+.computer
+        readKey $fefe, %00001000                ; read "C" key
+        jr z, .computer                         ; branch if still being pressed - wait till released
+
+        ld a, "C"                               ; set player 1 type = computer
+        ld (player1Type), a
+.end
+        call DispTAlpha
+        ret
+
+player2
+        displayText player2Role
+.loop
+        readKey $bffe, %00010000 
+        jr z, .human
+        readKey $fefe, %00001000
+        jr z, .computer
+        jr .loop
+.human
+        readKey $bffe, %00010000
+        jr z, .human
+
+        ld a, "H"
+        ld (player2Type), a
+        jr .end
+.computer
+        readKey $fefe, %00001000
+        jr z, .computer
+
+        ld a, "C"
+        ld (player2Type), a
+.end
+        call DispTAlpha
+        ret
+
+
+
+
+
 
 setupIM2:
 ; sub routine to set-up IM2 to point to BB

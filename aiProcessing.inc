@@ -16,7 +16,7 @@ copyOriginalBoardState:
         ld a, (whoseGo)
         ld (copyWhoseGo), a
         
-        ; initialise all column scores 0..6 to -32767
+        ; initialise all column scores 0..6 to initialScore
         ld iy, colScore
         ld b, 7
         ld de, initialScore
@@ -111,7 +111,7 @@ updateColScore:
         ld   l, (iy +0)                         ; store back low
         ld   h, (iy +1)                         ; store back high
 
-        ld de, (playerScore)                       ; get the value to update
+        ld de, (playerScore)                    ; get the value to update
         add hl, de
         ld   (iy +0), l                         ; store back low
         ld   (iy +1), h                         ; store back high
@@ -185,62 +185,6 @@ pickBestAIMove:
         ld a, c
         ret
 
-/*        
-        ; Seed "best" with entry 0 at IY
-        ld   c, (iy +0)                         ; best.low
-        ld   a, (iy +1)                         ; best.high
-        xor  080h                               ; signed -> unsigned adjust
-        ld   b, a                               ; bestAdj.high
-        ld   e, 0                               ; bestIdx = 0
-        ld   d, 1                               ; curIdx  = 1
-
-        ; HL = IY + 2  (points to entry1.low)
-        push iy
-        pop  hl
-        inc  hl
-        inc  hl
-
-.loop:
-        ld   a, d
-        cp   7
-        jr   z, .done                           ; processed all 7 entries
-
-        ld   a, (hl)                            ; cand.low
-        inc  hl                                 ; -> cand.high
-        ld   a, (hl)                            ; cand.high
-        xor  080h
-        cp   b
-        jr   c, .skip                           ; cand.high < bestAdj.high
-        jr   nz, .take                          ; cand.high > bestAdj.high
-
-        ; equal highs -> compare lows
-        dec  hl                                 ; -> cand.low
-        ld   a, (hl)
-        cp   c
-        inc  hl                                 ; restore -> cand.high
-        jr   c, .skip
-
-.take:  ; update best = candidate
-        ld   a, (hl)                            ; cand.high
-        xor  080h
-        ld   b, a                               ; bestAdj.high
-        dec  hl                                 ; -> cand.low
-        ld   a, (hl)
-        ld   c, a                               ; best.low
-        inc  hl                                 ; restore -> cand.high
-        ld   e, d                               ; bestIdx = curIdx
-
-.skip:
-        inc  d                                  ; next index
-        inc  hl                                 ; advance HL to next.low
-        jr   .loop
-
-.done:
-        ld   a, e                               ; return index
-
-        ret
-
-*/
 
 DoAIMove:
 ;----------------------------------------------------------------------------------------------------------
@@ -256,7 +200,7 @@ DoAIMove:
         ld ix, columns                          ; point to columns data, i.e. how many chips in each column
 .loop:
         ld hl, 0                                ; default this column score to 0
-        ld (playerScore), HL                       ; set it
+        ld (playerScore), HL                    ; set it
 
         ld a, (ix +columnCnt)                   ; get chip count in column
         cp 255                                  ; check end of columns marker
@@ -277,9 +221,14 @@ DoAIMove:
         ld hl, 0
         ld (playerScore), hl
         
+        ld a, (goes)
+        cp 4
+        jr nc, .skip
+
         ld de, (columnWeight)
         add hl, de
 
+.skip
         ld de, (immediateThreat)
         add hl, de
         
@@ -305,7 +254,6 @@ DoAIMove:
 ; all 7 columns have been evaluated
 ; now pick the best one and return
 .end   
-;        ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; return A as the best index from the scores
 
 ; set ix to point to the column selected
@@ -323,7 +271,6 @@ evaluateImmediateThreat:
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
  
         inc (ix +1)                             ; increase chip count for the column
-;        ld a, yellowChip                        ; simulate a player (yellow) chip
         ld a, (copyWhoseGo)                     ; get whose go it is currently
         xor 4                                   ; we want to simulate an opposite chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
@@ -368,7 +315,7 @@ subsequentOpponent:
 
         ld ix, columns                          ; we want to simulate yellow response in each of 0..6 on top of red go
         ld hl, 0                                ; initialise score
-        ld (opponentScore), hl                    ; set it
+        ld (opponentScore), hl                  ; set it
 .loop:
         ld a, (ix +columnCnt)                   ; get column count 
         cp 255                                  ; is it the end marker
@@ -377,14 +324,14 @@ subsequentOpponent:
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
-        call simulateOpponent                     ; drop a yellow chip and evaluate
+        call simulateOpponent                   ; drop a yellow chip and evaluate
 .nextCol:
         inc ix                                  ; advance over row number
         inc ix                                  ; advance over chip count
         jr .loop                                ; branch for next column
 .end
-        ld de, (opponentScore)                    ; get the best running yellow score
-        ld (bestPlaceOpponent), de                ; save it
+        ld de, (opponentScore)                  ; get the best running yellow score
+        ld (bestPlaceOpponent), de              ; save it
 
         pop ix                                  ; restore columns pointer
         ret
@@ -399,7 +346,6 @@ simulateOpponent:
         inc (ix +columnCnt)                     ; increase chip count for the column
         ld a, (copyWhoseGo)                     ; get whose go it is currently
         xor 4                                   ; we want to simulate an opposite chip
-;        ld a, yellowChip                        ; simulate a player (yellow) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
@@ -420,7 +366,6 @@ simulatePlayer:
 ; Purpose :   place a red chip and evaluate
 ;---------------------------------------------------------------------------------------------------------------
         inc (ix +1)                             ; increase chip count for the column
- ;       ld a, redChip                           ; simulate a AI (red) chip
         ld a, (copyWhoseGo)                     ; get whose go it is currently
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1

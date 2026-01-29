@@ -304,14 +304,16 @@ charSet:
         DB "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
         DB "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"
         DB "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
-        DB "+", "-", "'", "!", ":", "?"
+        DB "(", ")", "+", "-", "'", "!", ":", "?"
 
 charEnd:
         DB "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
         DB 255
 
-txtTitle        db 0, 4, "C O N N E C T  4", 255
+txtTitle        db 0, 4, "L I N E  O F  4", 255
 txtInstruction1 db 1, 4, "O: Left   P: Right   space: Drop!", 255
 txtWinner1      db 3, 4, "we have a winner !!!", 255
 txtWinner2      db 4, 4, "press N for a new game", 255
 txtDraw1        db 3, 4, "it is a draw !!", 255
+player1Role     db 2, 4, "Player 1 (H)uman or (C)omputer ?", 255
+player2Role     db 3, 4, "Player 2 (H)uman or (C)omputer ?", 255
