@@ -58,10 +58,10 @@ MainLoop:
 ;       wait until space bar is NOT being pressed
 ;       otherwise might take as a go when user not ready
         call chkSpaceNotPressed
-
+        call keyV
         ld a, (whoseGo)                         ; get whose go it is
         cp yellowChip                           ; is it yellow - player
-        jp z, playerYellow                      ; branch if so
+ ;       jp z, playerYellow                      ; branch if so
         jp playerRed                            ; otherwise branch to AI
 
 playerRed:

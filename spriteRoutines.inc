@@ -64,7 +64,7 @@ setSlotValue:
         cp yellowChip                           ; was it yellow?
         jr z, .yellowGo                         ; branch for yellow if so
         jr    .redGo                            ; branch for red
-
+        
 .redGo:
         call scoreRedPosition
         jr .winCheck                            ; and check for a win
@@ -109,9 +109,6 @@ scoreYellowPosition:
         bit 7, a
         jr nz, .end
 
-        ; calculate offset to lookup table
-        ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
-        ld hl, yellowLUT                        ; point to base of table
         call readLUT                            ; determine LUT score to use in DE
 
         ld hl, (boardScore)                     ; get current score value
@@ -147,9 +144,6 @@ scoreRedPosition:
         neg
         ld b, a
 
-        ; calculate offset to lookup table
-        ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
-        ld hl, redLUT                           ; point to base of table
         call readLUT                            ; determine LUT score to use in DE
 
         ld hl, (boardScore)                     ; get current score value
@@ -164,7 +158,7 @@ scoreRedPosition:
 readLUT:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   Read Look up table (LUT) so that given lineScore & lineCount a strengh value is determined
-;             red and yellow have different LUT values
+;             player and opponent have different LUT values
 ; Input   :   HL = base of LUT 
 ;             B  = lineScore(winline) 0-4 representing count of chips of move being evaluated i.e. red or yellow
 ;             C  = lineCount(winline) 0-4 representing total chip count in line, red or yellow
@@ -172,6 +166,22 @@ readLUT:
 ;---------------------------------------------------------------------------------------------------------------
         ; calculate offset to lookup table
         ; this is 5 rows of 5 values, row is lineCount(?), column is lineScore(?)
+        ld a, (whoseGo)                         ; get whose chip is being played or simulated
+        ld e, a                                 ; store it
+        ld a, (copyWhoseGo)                     ; get whose real go it is 
+        cp e                                    ; compare them
+        jr z, .playerGo                         ; if same then it is a player go
+        jr .opponentGo                          ; otherwise we are simulating an opponent go
+
+.playerGo
+        ld hl, playerLUT
+        jr .doRead
+
+.opponentGo
+        ld hl, opponentLUT
+        jr .doRead
+
+.doRead
         ld d, c                                 ; return the lineCount(winline) 0..4 chips
         ld e, 5                                 ; ready to multiply by 5
         mul d, e                                ; do it

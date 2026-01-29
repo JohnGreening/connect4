@@ -12,8 +12,8 @@ winLine         db 0                            ; holds last win line where dete
 
 columnWeight    dw 0000
 immediateThreat dw 0000
-placeRed        dw 0000
-bestPlaceYellow dw 0000
+placePlayer        dw 0000
+bestPlaceOpponent dw 0000
 
 ; the connect 4 board data
 columns         db   0, 0                       ; column index or number, chip count in that column
@@ -31,24 +31,24 @@ lineCount       defs 69, 0                      ; for each win line, a tally of 
 boardEnd        db 0
 boardStateLen   equ boardEnd - columns
 
-;redLUT      defw 0, 0,  0,    0,     0
+;playerLUT      defw 0, 0,  0,    0,     0
 ;            defw 0, 6,  0,    0,     0
 ;            defw 0, 0, 70,    0,     0
 ;            defw 0, 0,  0, 1400,     0
 ;            defw 0, 0,  0,    0, 30000
 ;
-;yellowLUT   defw 0, 0,  0,    0,     0
+;opponentLUT   defw 0, 0,  0,    0,     0
 ;            defw 0, 5,  0,    0,     0
 ;            defw 0, 0, 50,    0,     0
 ;            defw 0, 0,  0, 2000,     0
 ;            defw 0, 0,  0,    0, 10000
-redLUT      defw 0, 0,  0,    0,     0
+playerLUT      defw 0, 0,  0,    0,     0
             defw 0, 6,  0,    0,     0
             defw 0, 0, 70,    0,     0
             defw 0, 0,  0,  500,     0
             defw 0, 0,  0,    0,  4000
 
-yellowLUT   defw 0, 0,  0,    0,     0
+opponentLUT   defw 0, 0,  0,    0,     0
             defw 0, 5,  0,    0,     0
             defw 0, 0, 50,    0,     0
             defw 0, 0,  0,  400,     0
@@ -63,8 +63,8 @@ originalSnapshot defs boardStateLen, 0
 snapA            defs boardStateLen, 0
 snapB            defs boardStateLen, 0
 
-redScore    dw 0000
-yellowScore dw 0000
+playerScore    dw 0000
+opponentScore dw 0000
 boardScore  dw 0000
 
 fullCol      equ -32767

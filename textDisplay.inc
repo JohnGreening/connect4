@@ -43,7 +43,7 @@ debug1
         push bc
         ld bc, 40 -6
         ld iy, tileMapData +334
-        ld hl, (yellowScore)
+        ld hl, (opponentScore)
         call DispHL
 
         add iy, bc
@@ -72,11 +72,11 @@ debug2
         call DispHL
 
         add iy, bc
-        ld hl, (placeRed)
+        ld hl, (placePlayer)
         call DispHL
 
         add iy, bc
-        ld hl, (bestPlaceYellow)
+        ld hl, (bestPlaceOpponent)
         call DispHL
         
         call keyV

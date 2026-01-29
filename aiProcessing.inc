@@ -111,7 +111,7 @@ updateColScore:
         ld   l, (iy +0)                         ; store back low
         ld   h, (iy +1)                         ; store back high
 
-        ld de, (redScore)                       ; get the value to update
+        ld de, (playerScore)                       ; get the value to update
         add hl, de
         ld   (iy +0), l                         ; store back low
         ld   (iy +1), h                         ; store back high
@@ -133,6 +133,59 @@ pickBestAIMove:
 ; Tie-break: earlier index (lowest) wins
 ;--------------------------------------------------------------------------------------------------
 
+        ld iy, colScore
+        ld b, 0
+        ld c, 0
+
+        ld l, (iy+0)
+        ld h, (iy+1)
+
+        inc iy
+        inc iy
+
+.findLoop
+        inc b
+        ld a, b
+        cp 7
+        jr z, .done
+
+        ld e, (iy+0)
+        ld d, (iy+1)
+
+        push hl
+        or a
+        sbc hl, de
+        pop hl
+
+        jr z, .rnd
+        jp pe, .overflow
+        jp p, .next
+        jr .newMax
+
+.overflow
+        jp m, .next
+        jr .newMax
+
+.rnd
+        ld a, r
+        bit 0, a
+        jr z, .next
+
+.newMax
+        ld l, e
+        ld h, d
+        ld c, b
+
+.next
+        inc iy
+        inc iy
+        jr .findLoop
+
+.done
+        ld a, c
+        ret
+
+/*        
         ; Seed "best" with entry 0 at IY
         ld   c, (iy +0)                         ; best.low
         ld   a, (iy +1)                         ; best.high
@@ -187,7 +240,7 @@ pickBestAIMove:
 
         ret
 
-
+*/
 
 DoAIMove:
 ;----------------------------------------------------------------------------------------------------------
@@ -203,7 +256,7 @@ DoAIMove:
         ld ix, columns                          ; point to columns data, i.e. how many chips in each column
 .loop:
         ld hl, 0                                ; default this column score to 0
-        ld (redScore), HL                       ; set it
+        ld (playerScore), HL                       ; set it
 
         ld a, (ix +columnCnt)                   ; get chip count in column
         cp 255                                  ; check end of columns marker
@@ -213,19 +266,16 @@ DoAIMove:
 
         ; just evaluate for centre preferred
         call evaluateColumnWeights
-    ;    call debug2
 
         ; check for an immediate yellow win
         call evaluateImmediateThreat
-;        call debug2
 
         ; place red and all possible yellow replies
-        call evaluateRedYellow1Ply
-     ;   call debug2
+        call evaluatePlayerOpponent1Ply
 
 .nextCol:
         ld hl, 0
-        ld (redScore), hl
+        ld (playerScore), hl
         
         ld de, (columnWeight)
         add hl, de
@@ -233,13 +283,13 @@ DoAIMove:
         ld de, (immediateThreat)
         add hl, de
         
-        ld de, (placeRed)
+        ld de, (placePlayer)
         add hl, de
         
-        ld de, (bestPlaceYellow)
+        ld de, (bestPlaceOpponent)
         sbc hl, de
 
-        ld (redScore), hl
+        ld (playerScore), hl
 
 .updateScore
         call updateColScore
@@ -249,13 +299,13 @@ DoAIMove:
 
 .colFull
         ld hl, fullCol
-        ld (redScore), hl
+        ld (playerScore), hl
         jr .updateScore
 
 ; all 7 columns have been evaluated
 ; now pick the best one and return
 .end   
-        ld iy, colScore                         ; set to pick from best Red move
+;        ld iy, colScore                         ; set to pick from best Red move
         call pickBestAIMove                     ; return A as the best index from the scores
 
 ; set ix to point to the column selected
@@ -269,28 +319,31 @@ DoAIMove:
 
 
 evaluateImmediateThreat:
-; Purpose :   Initially place a yellow chip and evaluate - we want to block immediate player (yellow) threat
+; Purpose :   Initially place an opponents chip and evaluate - we want to block immediate opponents threat
         call createSnapA                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
  
         inc (ix +1)                             ; increase chip count for the column
-        ld a, yellowChip                        ; simulate a player (yellow) chip
+;        ld a, yellowChip                        ; simulate a player (yellow) chip
+        ld a, (copyWhoseGo)                     ; get whose go it is currently
+        xor 4                                   ; we want to simulate an opposite chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
+        ld de, (boardScore)
         ld (immediateThreat), de
 
         call restoreFromSnapA                   ; restore board to before this yellow test
         ret
 
 
-evaluateRedYellow1Ply:
+evaluatePlayerOpponent1Ply:
 ; Purpose :   place a Red chip and then all possible Yellow replies and evaluate
 
         call createSnapA
 
-        call simulateRed
-        call subsequentYellow
+        call simulatePlayer
+        call subsequentOpponent
 
         call restoreFromSnapA
 
@@ -309,13 +362,13 @@ evaluateColumnWeights:
         ld (columnWeight), de
         ret
 
-subsequentYellow:
+subsequentOpponent:
 ; here we are simulating yellow in each of the columns 0..6 AFTER placing red chip
         push ix                                 ; save current column pointer
 
         ld ix, columns                          ; we want to simulate yellow response in each of 0..6 on top of red go
         ld hl, 0                                ; initialise score
-        ld (yellowScore), hl                    ; set it
+        ld (opponentScore), hl                    ; set it
 .loop:
         ld a, (ix +columnCnt)                   ; get column count 
         cp 255                                  ; is it the end marker
@@ -324,52 +377,55 @@ subsequentYellow:
         cp 6                                    ; is it full
         jr z, .nextCol                          ; branch if so
 
-        call simulateYellow                     ; drop a yellow chip and evaluate
+        call simulateOpponent                     ; drop a yellow chip and evaluate
 .nextCol:
         inc ix                                  ; advance over row number
         inc ix                                  ; advance over chip count
         jr .loop                                ; branch for next column
 .end
-        ld de, (yellowScore)                    ; get the best running yellow score
-        ld (bestPlaceYellow), de                ; save it
+        ld de, (opponentScore)                    ; get the best running yellow score
+        ld (bestPlaceOpponent), de                ; save it
 
         pop ix                                  ; restore columns pointer
         ret
 
 
-simulateYellow:
+simulateOpponent:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   place a yellow chip and evaluate
 ;---------------------------------------------------------------------------------------------------------------
         call createSnapB                        ; save current columns(), lineScore(), lineCount() into undoColumns ...
 
         inc (ix +columnCnt)                     ; increase chip count for the column
-        ld a, yellowChip                        ; simulate a player (yellow) chip
+        ld a, (copyWhoseGo)                     ; get whose go it is currently
+        xor 4                                   ; we want to simulate an opposite chip
+;        ld a, yellowChip                        ; simulate a player (yellow) chip
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
-        ; pick the best running yellowScore
+        ; pick the best running opponentScore
         or a
-        ld hl, (yellowScore)
+        ld hl, (opponentScore)
         ld de, (boardScore)
         sbc hl, de
         jr nc, .end
-        ld (yellowScore), de
+        ld (opponentScore), de
 .end
         call restoreFromSnapB
         ret
 
-simulateRed:
+simulatePlayer:
 ;---------------------------------------------------------------------------------------------------------------
 ; Purpose :   place a red chip and evaluate
 ;---------------------------------------------------------------------------------------------------------------
         inc (ix +1)                             ; increase chip count for the column
-        ld a, redChip                           ; simulate a AI (red) chip
+ ;       ld a, redChip                           ; simulate a AI (red) chip
+        ld a, (copyWhoseGo)                     ; get whose go it is currently
         ld (whoseGo), a                         ; save it for setSlotValue routine
         call calculateBoardIndex                ; calculate A=BI from IX +0, IX+= +1
         call setSlotValue                       ; place on board and evaluate
 
         ld de, (boardScore)
-        ld (placeRed), de
+        ld (placePlayer), de
         ret
